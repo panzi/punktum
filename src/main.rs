@@ -3,7 +3,7 @@ use std::process::Command;
 #[cfg(target_family = "unix")]
 use std::os::unix::process::CommandExt;
 
-fn main() -> dotenv::Result<()> {
+fn run() -> dotenv::Result<()> {
     dotenv::load()?;
 
     let mut args = std::env::args_os();
@@ -20,5 +20,12 @@ fn main() -> dotenv::Result<()> {
         }
     } else {
         return Err(dotenv::ErrorKind::NotEnoughArguments.into());
+    }
+}
+
+fn main() {
+    if let Err(error) = run() {
+        eprintln!("{error}");
+        std::process::exit(1);
     }
 }

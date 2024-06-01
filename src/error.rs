@@ -1,4 +1,3 @@
-
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
     OptionsParseError,
@@ -65,7 +64,46 @@ impl std::error::Error for Error {
 
 impl From<std::io::Error> for Error {
     #[inline]
-    fn from(value: std::io::Error) -> Self {
-        Self::new(ErrorKind::IOError, value)
+    fn from(error: std::io::Error) -> Self {
+        Self::new(ErrorKind::IOError, error)
     }
 }
+
+impl From<SyntaxError> for Error {
+    #[inline]
+    fn from(error: SyntaxError) -> Self {
+        Self::new(ErrorKind::SyntaxError, error)
+    }
+}
+
+#[derive(Debug)]
+pub struct SyntaxError {
+    lineno: usize,
+    column: usize,
+}
+
+impl SyntaxError {
+    #[inline]
+    pub fn new(lineno: usize, column: usize) -> Self {
+        Self { lineno, column }
+    }
+
+    #[inline]
+    pub fn lineno(&self) -> usize {
+        self.lineno
+    }
+
+    #[inline]
+    pub fn column(&self) -> usize {
+        self.column
+    }
+}
+
+impl std::fmt::Display for SyntaxError {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "on line {} at column {}", self.lineno, self.column)
+    }
+}
+
+impl std::error::Error for SyntaxError {}
