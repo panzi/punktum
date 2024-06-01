@@ -7,18 +7,18 @@ fn main() -> dotenv::Result<()> {
     dotenv::load()?;
 
     let mut args = std::env::args_os();
-    if let Some(program) = args.next() {
+    if let Some(program) = args.nth(1) {
         #[cfg(target_family = "unix")]
-        return Err(dotenv::Error::with_cause(
+        return Err(dotenv::Error::new(
             dotenv::ErrorKind::ExecError,
-            Box::new(Command::new(program).args(args).exec())));
+            Command::new(program).args(args).exec()));
 
         #[cfg(not(target_family = "unix"))]
         {
             let status = Command::new(program).args(args).status()?;
             std::process::exit(status.code().unwrap_or(1));
         }
+    } else {
+        return Err(dotenv::ErrorKind::NotEnoughArguments.into());
     }
-
-    Ok(())
 }

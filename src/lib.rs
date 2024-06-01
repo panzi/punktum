@@ -1,136 +1,24 @@
 use std::str::CharIndices;
-use std::{ffi::OsStr, fs::File, io::BufReader, path::Path};
-use std::io::BufRead;
+use std::{fs::File, io::BufReader, path::Path};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ErrorKind {
-    OptionsParseError,
-    IOError,
-    SyntaxError,
-    ExecError,
-}
+pub mod error;
+pub use error::Error;
+pub use error::ErrorKind;
 
-impl std::fmt::Display for ErrorKind {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self, f)
-    }
-}
+pub mod options;
+pub use options::Options;
 
-#[derive(Debug)]
-pub struct Error {
-    cause: Option<Box<dyn std::error::Error>>,
-    kind: ErrorKind,
-}
-
-impl Error {
-    #[inline]
-    pub fn new(kind: ErrorKind) -> Self {
-        Self { cause: None, kind }
-    }
-
-    #[inline]
-    pub fn with_cause(kind: ErrorKind, cause: Box<dyn std::error::Error>) -> Self {
-        Self { cause: Some(cause), kind }
-    }
-
-    #[inline]
-    pub fn kind(&self) -> ErrorKind {
-        self.kind
-    }
-}
-
-impl std::fmt::Display for Error {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self, f)
-    }
-}
-
-impl std::error::Error for Error {
-    #[inline]
-    fn cause(&self) -> Option<&dyn std::error::Error> {
-        if let Some(cause) = &self.cause {
-            Some(cause.as_ref())
-        } else {
-            None
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(value: std::io::Error) -> Self {
-        Self::with_cause(ErrorKind::IOError, Box::new(value))
-    }
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Debug, PartialEq, Clone, Copy, Default)]
-pub struct Options {
-    /// Override existing environment variables.
-    pub override_env: bool,
-
-    /// Error on IO or parser errors.
-    pub strict: bool,
-
-    /// Log IO and parser errors.
-    pub debug: bool,
-}
+pub mod result;
+pub use result::Result;
 
 #[inline]
-fn getenv_bool(key: impl AsRef<OsStr>, default_value: bool) -> Result<bool> {
-    getenv_bool_intern(key.as_ref(), default_value)
-}
-
-fn getenv_bool_intern(key: &OsStr, default_value: bool) -> Result<bool> {
-    if let Some(value) = std::env::var_os(key) {
-        if value.eq_ignore_ascii_case("true") || value.eq("1") {
-            Ok(true)
-        } else if value.eq_ignore_ascii_case("false") || value.is_empty() || value.eq("0") {
-            Ok(false)
-        } else {
-            eprintln!("illegal value for environment variable {key:?}={value:?}");
-            Err(Error::new(ErrorKind::OptionsParseError))
-        }
-    } else {
-        Ok(default_value)
-    }
-}
-
-impl Options {
-    pub fn from_env() -> Result<Self> {
-        let override_env = getenv_bool("DOTENV_CONFIG_OVERRIDE", false)?;
-        let strict = getenv_bool("DOTENV_CONFIG_STRICT", false)?; // extension!
-        let debug = getenv_bool("DOTENV_CONFIG_DEBUG", false)?;
-
-        Ok(Self { override_env, strict, debug })
-    }
-
-    #[inline]
-    fn set_var<K: AsRef<OsStr>, V: AsRef<OsStr>>(&self, key: K, value: V) {
-        let key = key.as_ref();
-        if self.override_env || std::env::var_os(key).is_none() {
-            std::env::set_var(key, value);
-        }
-    }
-}
-
 pub fn load() -> Result<()> {
-    let path = std::env::var_os("DOTENV_CONFIG_PATH");
     let options = Options::from_env()?;
-
-    let path = if let Some(path) = &path {
-        path
-    } else {
-        OsStr::new(".env")
-    };
-
-    load_from(path, options)
+    load_from(options::config_path(), &options)
 }
 
 #[inline]
-pub fn load_from(path: impl AsRef<Path>, options: Options) -> Result<()> {
+pub fn load_from(path: impl AsRef<Path>, options: &Options) -> Result<()> {
     load_from_intern(path.as_ref(), options)
 }
 
@@ -154,7 +42,7 @@ fn skip_word(iter: &mut CharIndices) -> Option<(usize, char)> {
     None
 }
 
-fn load_from_intern(path: &Path, options: Options) -> Result<()> {
+fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
     let file = File::open(path);
     let path_str = path.to_string_lossy();
 
@@ -164,7 +52,7 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
                 eprintln!("{path_str}: {err}");
             }
             if options.strict {
-                return Err(Error::with_cause(ErrorKind::IOError, Box::new(err)));
+                return Err(Error::new(ErrorKind::IOError, err));
             }
         }
         Ok(file) => {
@@ -176,12 +64,12 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
 
             loop {
                 buf.clear();
-                if let Err(err) = reader.read_line(&mut buf) {
+                if let Err(err) = options.read_line(&mut reader, &mut buf) {
                     if options.debug {
                         eprintln!("{path_str}:{lineno}: {err}");
                     }
                     if options.strict {
-                        return Err(Error::with_cause(ErrorKind::IOError, Box::new(err)));
+                        return Err(Error::new(ErrorKind::IOError, err));
                     }
                     return Ok(());
                 }
@@ -205,10 +93,11 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
 
                 let Some((mut index, mut ch)) = skip_word(&mut iter) else {
                     if options.debug {
-                        eprintln!("{path_str}:{lineno}: syntax error: {buf}");
+                        let line = buf.trim_end_matches('\n');
+                        eprintln!("{path_str}:{lineno}: syntax error: {line}");
                     }
                     if options.strict {
-                        return Err(Error::new(ErrorKind::SyntaxError));
+                        return Err(ErrorKind::SyntaxError.into());
                     }
                     continue;
                 };
@@ -218,10 +107,11 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
 
                 if key.is_empty() {
                     if options.debug {
-                        eprintln!("{path_str}:{lineno}: syntax error: {buf}");
+                        let line = buf.trim_end_matches('\n');
+                        eprintln!("{path_str}:{lineno}: syntax error: {line}");
                     }
                     if options.strict {
-                        return Err(Error::new(ErrorKind::SyntaxError));
+                        return Err(ErrorKind::SyntaxError.into());
                     }
                     continue;
                 }
@@ -229,20 +119,22 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
                 if ch != '=' {
                     if !ch.is_ascii_whitespace() {
                         if options.debug {
-                            eprintln!("{path_str}:{lineno}: syntax error: {buf}");
+                            let line = buf.trim_end_matches('\n');
+                            eprintln!("{path_str}:{lineno}: syntax error: {line}");
                         }
                         if options.strict {
-                            return Err(Error::new(ErrorKind::SyntaxError));
+                            return Err(ErrorKind::SyntaxError.into());
                         }
                         continue;
                     }
 
                     let Some((_, next_ch)) = skipws(&mut iter) else {
                         if options.debug {
-                            eprintln!("{path_str}:{lineno}: syntax error: unexpected end of line, expected '=': {buf}");
+                            let line = buf.trim_end_matches('\n');
+                            eprintln!("{path_str}:{lineno}: syntax error: unexpected end of line, expected '=': {line}");
                         }
                         if options.strict {
-                            return Err(Error::new(ErrorKind::SyntaxError));
+                            return Err(ErrorKind::SyntaxError.into());
                         }
                         continue;
                     };
@@ -251,10 +143,11 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
 
                 if ch != '=' {
                     if options.debug {
-                        eprintln!("{path_str}:{lineno}: syntax error: expected '=', actual {ch:?}: {buf}");
+                        let line = buf.trim_end_matches('\n');
+                        eprintln!("{path_str}:{lineno}: syntax error: expected '=', actual {ch:?}: {line}");
                     }
                     if options.strict {
-                        return Err(Error::new(ErrorKind::SyntaxError));
+                        return Err(ErrorKind::SyntaxError.into());
                     }
                     continue;
                 }
@@ -273,10 +166,11 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
                     loop {
                         let Some((index, ch)) = iter.next() else {
                             if options.debug {
-                                eprintln!("{path_str}:{lineno}: syntax error: unterminated string literal: {buf}");
+                                let line = buf.trim_end_matches('\n');
+                                eprintln!("{path_str}:{lineno}: syntax error: unterminated string literal: {line}");
                             }
                             if options.strict {
-                                return Err(Error::new(ErrorKind::SyntaxError));
+                                return Err(ErrorKind::SyntaxError.into());
                             }
                             value.push_str(&buf[prev_index..]);
                             break;
@@ -320,32 +214,35 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
                                         }
                                         '\0' => {
                                             if options.debug {
-                                                eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf}");
+                                                eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf:?}");
                                             }
                                             if options.strict {
-                                                return Err(Error::new(ErrorKind::SyntaxError));
+                                                return Err(ErrorKind::SyntaxError.into());
                                             }
                                             value.push('\\');
                                             prev_index = index + 1;
                                         }
                                         _ => {
                                             if options.debug {
-                                                eprintln!("{path_str}:{lineno}: syntax error: illegal escape seqeunce: {buf}");
+                                                let line = buf.trim_end_matches('\n');
+                                                eprintln!("{path_str}:{lineno}: syntax error: illegal escape seqeunce: {line}");
                                             }
                                             if options.strict {
-                                                return Err(Error::new(ErrorKind::SyntaxError));
+                                                return Err(ErrorKind::SyntaxError.into());
                                             }
-                                            value.push(ch);
+                                            value.push_str(&buf[(index - 1)..(index + 1)]);
                                             prev_index = index + 1;
                                         }
                                     }
                                 } else {
                                     if options.debug {
-                                        eprintln!("{path_str}:{lineno}: syntax error: illegal escape seqeunce: {buf}");
+                                        let line = buf.trim_end_matches('\n');
+                                        eprintln!("{path_str}:{lineno}: syntax error: unexpected end of line within escape seqeunce: {line}");
                                     }
                                     if options.strict {
-                                        return Err(Error::new(ErrorKind::SyntaxError));
+                                        return Err(ErrorKind::SyntaxError.into());
                                     }
+                                    value.push('\\');
                                     prev_index = index;
                                 }
                             }
@@ -355,12 +252,12 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
                                 prev_index = 0;
 
                                 buf.clear();
-                                if let Err(err) = reader.read_line(&mut buf) {
+                                if let Err(err) = options.read_line(&mut reader, &mut buf) {
                                     if options.debug {
                                         eprintln!("{path_str}:{lineno}: {err}");
                                     }
                                     if options.strict {
-                                        return Err(Error::with_cause(ErrorKind::IOError, Box::new(err)));
+                                        return Err(Error::new(ErrorKind::IOError, err));
                                     }
                                     options.set_var(&key, &value);
                                     return Ok(());
@@ -368,6 +265,13 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
                                 lineno += 1;
 
                                 if buf.is_empty() {
+                                    if options.debug {
+                                        let line = buf.trim_end_matches('\n');
+                                        eprintln!("{path_str}:{lineno}: syntax error: unterminated string literal: {line}");
+                                    }
+                                    if options.strict {
+                                        return Err(ErrorKind::SyntaxError.into());
+                                    }
                                     options.set_var(&key, &value);
                                     return Ok(());
                                 }
@@ -382,10 +286,10 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
                             }
                             '\0' => {
                                 if options.debug {
-                                    eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf}");
+                                    eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf:?}");
                                 }
                                 if options.strict {
-                                    return Err(Error::new(ErrorKind::SyntaxError));
+                                    return Err(ErrorKind::SyntaxError.into());
                                 }
                                 if index > prev_index {
                                     value.push_str(&buf[prev_index..index]);
@@ -399,20 +303,22 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
                     if let Some((_, next_ch)) = iter.next() {
                         if !next_ch.is_ascii_whitespace() {
                             if options.debug {
-                                eprintln!("{path_str}:{lineno}: syntax error: unexpected {next_ch:?}: {buf}");
+                                let line = buf.trim_end_matches('\n');
+                                eprintln!("{path_str}:{lineno}: syntax error: unexpected {next_ch:?}: {line}");
                             }
                             if options.strict {
-                                return Err(Error::new(ErrorKind::SyntaxError));
+                                return Err(ErrorKind::SyntaxError.into());
                             }
                         }
 
                         if let Some((_, next_ch)) = skipws(&mut iter) {
                             if next_ch != '#' {
                                 if options.debug {
-                                    eprintln!("{path_str}:{lineno}: syntax error: unexpected {next_ch:?}: {buf}");
+                                    let line = buf.trim_end_matches('\n');
+                                    eprintln!("{path_str}:{lineno}: syntax error: unexpected {next_ch:?}: {line}");
                                 }
                                 if options.strict {
-                                    return Err(Error::new(ErrorKind::SyntaxError));
+                                    return Err(ErrorKind::SyntaxError.into());
                                 }
                             }
                         }
@@ -420,10 +326,10 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
                 } else if ch != '#' {
                     if ch == '\0' {
                         if options.debug {
-                            eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf}");
+                            eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf:?}");
                         }
                         if options.strict {
-                            return Err(Error::new(ErrorKind::SyntaxError));
+                            return Err(ErrorKind::SyntaxError.into());
                         }
                         index += 1;
                     }
@@ -446,10 +352,10 @@ fn load_from_intern(path: &Path, options: Options) -> Result<()> {
 
                         if ch == '\0' {
                             if options.debug {
-                                eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf}");
+                                eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf:?}");
                             }
                             if options.strict {
-                                return Err(Error::new(ErrorKind::SyntaxError));
+                                return Err(ErrorKind::SyntaxError.into());
                             }
                             if next_index > prev_index {
                                 value.push_str(&buf[prev_index..next_index]);
