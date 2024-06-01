@@ -64,16 +64,16 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
 
             loop {
                 buf.clear();
+                lineno += 1;
                 if let Err(err) = options.read_line(&mut reader, &mut buf) {
                     if options.debug {
-                        eprintln!("{path_str}:{lineno}: {err}");
+                        eprintln!("{path_str}:{lineno}:1: {err}");
                     }
                     if options.strict {
                         return Err(Error::new(ErrorKind::IOError, err));
                     }
                     return Ok(());
                 }
-                lineno += 1;
 
                 if buf.is_empty() {
                     break;
@@ -94,7 +94,8 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                 let Some((mut index, mut ch)) = skip_word(&mut iter) else {
                     if options.debug {
                         let line = buf.trim_end_matches('\n');
-                        eprintln!("{path_str}:{lineno}: syntax error: {line}");
+                        let column = prev_index + 1;
+                        eprintln!("{path_str}:{lineno}:{column}: syntax error: {line}");
                     }
                     if options.strict {
                         return Err(ErrorKind::SyntaxError.into());
@@ -108,7 +109,8 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                 if key.is_empty() {
                     if options.debug {
                         let line = buf.trim_end_matches('\n');
-                        eprintln!("{path_str}:{lineno}: syntax error: {line}");
+                        let column = index + 1;
+                        eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected {ch:?}: {line}");
                     }
                     if options.strict {
                         return Err(ErrorKind::SyntaxError.into());
@@ -120,7 +122,8 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                     if !ch.is_ascii_whitespace() {
                         if options.debug {
                             let line = buf.trim_end_matches('\n');
-                            eprintln!("{path_str}:{lineno}: syntax error: {line}");
+                            let column = index + 1;
+                            eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected {ch:?}: {line}");
                         }
                         if options.strict {
                             return Err(ErrorKind::SyntaxError.into());
@@ -128,23 +131,26 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                         continue;
                     }
 
-                    let Some((_, next_ch)) = skipws(&mut iter) else {
+                    let Some((next_index, next_ch)) = skipws(&mut iter) else {
                         if options.debug {
                             let line = buf.trim_end_matches('\n');
-                            eprintln!("{path_str}:{lineno}: syntax error: unexpected end of line, expected '=': {line}");
+                            let column = index + 1;
+                            eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected end of line, expected '=': {line}");
                         }
                         if options.strict {
                             return Err(ErrorKind::SyntaxError.into());
                         }
                         continue;
                     };
+                    index = next_index;
                     ch = next_ch;
                 }
 
                 if ch != '=' {
                     if options.debug {
                         let line = buf.trim_end_matches('\n');
-                        eprintln!("{path_str}:{lineno}: syntax error: expected '=', actual {ch:?}: {line}");
+                        let column = index + 1;
+                        eprintln!("{path_str}:{lineno}:{column}: syntax error: expected '=', actual {ch:?}: {line}");
                     }
                     if options.strict {
                         return Err(ErrorKind::SyntaxError.into());
@@ -167,7 +173,8 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                         let Some((index, ch)) = iter.next() else {
                             if options.debug {
                                 let line = buf.trim_end_matches('\n');
-                                eprintln!("{path_str}:{lineno}: syntax error: unterminated string literal: {line}");
+                                let column = prev_index + 1;
+                                eprintln!("{path_str}:{lineno}:{column}: syntax error: unterminated string literal: {line}");
                             }
                             if options.strict {
                                 return Err(ErrorKind::SyntaxError.into());
@@ -214,7 +221,8 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                         }
                                         '\0' => {
                                             if options.debug {
-                                                eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf:?}");
+                                                let column = index + 1;
+                                                eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                                             }
                                             if options.strict {
                                                 return Err(ErrorKind::SyntaxError.into());
@@ -225,19 +233,52 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                         _ => {
                                             if options.debug {
                                                 let line = buf.trim_end_matches('\n');
-                                                eprintln!("{path_str}:{lineno}: syntax error: illegal escape seqeunce: {line}");
+                                                let column = index + 1;
+                                                eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce: {line}");
                                             }
                                             if options.strict {
                                                 return Err(ErrorKind::SyntaxError.into());
                                             }
                                             value.push_str(&buf[(index - 1)..(index + 1)]);
-                                            prev_index = index + 1;
+                                            if ch == '\n' {
+                                                prev_index = 0;
+
+                                                buf.clear();
+                                                lineno += 1;
+                                                if let Err(err) = options.read_line(&mut reader, &mut buf) {
+                                                    if options.debug {
+                                                        eprintln!("{path_str}:{lineno}:1: {err}");
+                                                    }
+                                                    if options.strict {
+                                                        return Err(Error::new(ErrorKind::IOError, err));
+                                                    }
+                                                    options.set_var(&key, &value);
+                                                    return Ok(());
+                                                }
+
+                                                if buf.is_empty() {
+                                                    if options.debug {
+                                                        let line = buf.trim_end_matches('\n');
+                                                        eprintln!("{path_str}:{lineno}:1: syntax error: unterminated string literal: {line}");
+                                                    }
+                                                    if options.strict {
+                                                        return Err(ErrorKind::SyntaxError.into());
+                                                    }
+                                                    options.set_var(&key, &value);
+                                                    return Ok(());
+                                                }
+
+                                                iter = buf.char_indices();
+                                            } else {
+                                                prev_index = index + 1;
+                                            }
                                         }
                                     }
                                 } else {
                                     if options.debug {
                                         let line = buf.trim_end_matches('\n');
-                                        eprintln!("{path_str}:{lineno}: syntax error: unexpected end of line within escape seqeunce: {line}");
+                                        let column = index + 1;
+                                        eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected end of line within escape seqeunce: {line}");
                                     }
                                     if options.strict {
                                         return Err(ErrorKind::SyntaxError.into());
@@ -252,9 +293,10 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                 prev_index = 0;
 
                                 buf.clear();
+                                lineno += 1;
                                 if let Err(err) = options.read_line(&mut reader, &mut buf) {
                                     if options.debug {
-                                        eprintln!("{path_str}:{lineno}: {err}");
+                                        eprintln!("{path_str}:{lineno}:1: {err}");
                                     }
                                     if options.strict {
                                         return Err(Error::new(ErrorKind::IOError, err));
@@ -262,12 +304,11 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                     options.set_var(&key, &value);
                                     return Ok(());
                                 }
-                                lineno += 1;
 
                                 if buf.is_empty() {
                                     if options.debug {
                                         let line = buf.trim_end_matches('\n');
-                                        eprintln!("{path_str}:{lineno}: syntax error: unterminated string literal: {line}");
+                                        eprintln!("{path_str}:{lineno}:1: syntax error: unterminated string literal: {line}");
                                     }
                                     if options.strict {
                                         return Err(ErrorKind::SyntaxError.into());
@@ -286,7 +327,8 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                             }
                             '\0' => {
                                 if options.debug {
-                                    eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf:?}");
+                                    let column = index + 1;
+                                    eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                                 }
                                 if options.strict {
                                     return Err(ErrorKind::SyntaxError.into());
@@ -300,11 +342,12 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                         }
                     }
 
-                    if let Some((_, next_ch)) = iter.next() {
+                    if let Some((next_index, next_ch)) = iter.next() {
                         if !next_ch.is_ascii_whitespace() {
                             if options.debug {
                                 let line = buf.trim_end_matches('\n');
-                                eprintln!("{path_str}:{lineno}: syntax error: unexpected {next_ch:?}: {line}");
+                                let column = next_index + 1;
+                                eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected {next_ch:?}: {line}");
                             }
                             if options.strict {
                                 return Err(ErrorKind::SyntaxError.into());
@@ -315,7 +358,8 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                             if next_ch != '#' {
                                 if options.debug {
                                     let line = buf.trim_end_matches('\n');
-                                    eprintln!("{path_str}:{lineno}: syntax error: unexpected {next_ch:?}: {line}");
+                                    let column = next_index + 1;
+                                    eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected {next_ch:?}: {line}");
                                 }
                                 if options.strict {
                                     return Err(ErrorKind::SyntaxError.into());
@@ -326,7 +370,8 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                 } else if ch != '#' {
                     if ch == '\0' {
                         if options.debug {
-                            eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf:?}");
+                            let column = index + 1;
+                            eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                         }
                         if options.strict {
                             return Err(ErrorKind::SyntaxError.into());
@@ -339,10 +384,10 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                     while let Some((mut next_index, mut ch)) = iter.next() {
                         if ch.is_ascii_whitespace() {
                             index = next_index;
-                            let Some((nonws_index, next_ch)) = skipws(&mut iter) else {
+                            let Some((non_ws_index, next_ch)) = skipws(&mut iter) else {
                                 break;
                             };
-                            next_index = nonws_index;
+                            next_index = non_ws_index;
                             ch = next_ch;
 
                             if ch == '#' {
@@ -352,7 +397,8 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
 
                         if ch == '\0' {
                             if options.debug {
-                                eprintln!("{path_str}:{lineno}: syntax error: illegal null byte: {buf:?}");
+                                let column = next_index + 1;
+                                eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                             }
                             if options.strict {
                                 return Err(ErrorKind::SyntaxError.into());
