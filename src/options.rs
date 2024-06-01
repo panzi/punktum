@@ -83,7 +83,7 @@ impl Default for Options {
 impl Options {
     pub fn from_env() -> Result<Self> {
         let override_env = getenv_bool("DOTENV_CONFIG_OVERRIDE", false)?;
-        let strict = getenv_bool("DOTENV_CONFIG_STRICT", false)?; // extension!
+        let strict = getenv_bool("DOTENV_CONFIG_STRICT", true)?; // extension!
         let debug = getenv_bool("DOTENV_CONFIG_DEBUG", false)?;
 
         let encoding_key = OsStr::new("DOTENV_CONFIG_ENCODING");
