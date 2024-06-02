@@ -96,7 +96,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                     continue;
                 }
 
-                let mut prev_index = index;
+                let prev_index = index;
 
                 if !ch.is_ascii_alphanumeric() && ch != '_' {
                     let column = prev_index + 1;
@@ -185,214 +185,208 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                 index = next_index;
                 ch = next_ch;
 
-                if ch == '"' || ch == '\'' {
-                    let quote = ch;
-                    prev_index = index + 1;
+                while index < buf.len() {
+                    if ch == '"' || ch == '\'' {
+                        let quote = ch;
+                        let prev_index = index + 1;
 
-                    loop {
-                        let Some((index, ch)) = iter.next() else {
-                            let column = prev_index + 1;
-                            if options.debug {
-                                let line = buf.trim_end_matches('\n');
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: unterminated string literal: {line}");
-                            }
-                            if options.strict {
-                                return Err(Error::syntax_error(lineno, column));
-                            }
-                            value.push_str(&buf[prev_index..]);
-                            break;
-                        };
-
-                        if ch == quote {
-                            if index > prev_index {
-                                value.push_str(&buf[prev_index..index]);
-                            }
-                            // prev_index = index + 1;
-                            break;
-                        }
-
-                        match ch {
-                            '\\' if quote == '"' => {
-                                if index > prev_index {
-                                    value.push_str(&buf[prev_index..index]);
-                                }
-
-                                if let Some((index, ch)) = iter.next() {
-                                    match ch {
-                                        '\\' => {
-                                            value.push('\\');
-                                            prev_index = index + 1;
-                                        }
-                                        '"' => {
-                                            value.push('"');
-                                            prev_index = index + 1;
-                                        }
-                                        '\'' => {
-                                            value.push('\'');
-                                            prev_index = index + 1;
-                                        }
-                                        'r' => {
-                                            value.push('\r');
-                                            prev_index = index + 1;
-                                        }
-                                        'n' => {
-                                            value.push('\n');
-                                            prev_index = index + 1;
-                                        }
-                                        't' => {
-                                            value.push('\t');
-                                            prev_index = index + 1;
-                                        }
-                                        'f' => {
-                                            value.push('\x0C');
-                                            prev_index = index + 1;
-                                        }
-                                        'b' => {
-                                            value.push('\x08');
-                                            prev_index = index + 1;
-                                        }
-                                        '\0' => {
-                                            let column = index + 1;
-                                            if options.debug {
-                                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
-                                            }
-                                            if options.strict {
-                                                return Err(Error::syntax_error(lineno, column));
-                                            }
-                                            value.push('\\');
-                                            prev_index = index + 1;
-                                        }
-                                        _ => {
-                                            let column = index + 1;
-                                            if options.debug {
-                                                let escseq = &buf[(index - 1)..(index + 1)];
-                                                let line = buf.trim_end_matches('\n');
-                                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}");
-                                            }
-                                            if options.strict {
-                                                return Err(Error::syntax_error(lineno, column));
-                                            }
-                                            value.push_str(&buf[(index - 1)..(index + 1)]);
-                                            if ch == '\n' {
-                                                prev_index = 0;
-
-                                                buf.clear();
-                                                lineno += 1;
-                                                if let Err(err) = options.read_line(&mut reader, &mut buf) {
-                                                    if options.debug {
-                                                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: {err}");
-                                                    }
-                                                    if options.strict {
-                                                        return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
-                                                    }
-                                                    if err.kind() == std::io::ErrorKind::InvalidData {
-                                                        iter = buf.char_indices();
-                                                        break;
-                                                    } else {
-                                                        options.set_var(&key, &value);
-                                                        return Ok(());
-                                                    }
-                                                }
-
-                                                if buf.is_empty() {
-                                                    if options.debug {
-                                                        let line = buf.trim_end_matches('\n');
-                                                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: syntax error: unterminated string literal: {line}");
-                                                    }
-                                                    if options.strict {
-                                                        return Err(Error::syntax_error(lineno, 1).into());
-                                                    }
-                                                    options.set_var(&key, &value);
-                                                    return Ok(());
-                                                }
-
-                                                iter = buf.char_indices();
-                                            } else {
-                                                prev_index = index + 1;
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    let column = index + 1;
-                                    if options.debug {
-                                        let line = buf.trim_end_matches('\n');
-                                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: unexpected end of line within escape seqeunce: {line}");
-                                    }
-                                    if options.strict {
-                                        return Err(Error::syntax_error(lineno, column));
-                                    }
-                                    value.push('\\');
-                                    prev_index = index;
-                                }
-                            }
-                            '\n' => {
-                                let index = index + 1;
-                                value.push_str(&buf[prev_index..index]);
-                                prev_index = 0;
-
-                                buf.clear();
-                                lineno += 1;
-                                if let Err(err) = options.read_line(&mut reader, &mut buf) {
-                                    if options.debug {
-                                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: {err}");
-                                    }
-                                    if options.strict {
-                                        return Err(Error::with_cause(ErrorKind::IOError, err));
-                                    }
-                                    if err.kind() == std::io::ErrorKind::InvalidData {
-                                        iter = buf.char_indices();
-                                        break;
-                                    } else {
-                                        options.set_var(&key, &value);
-                                        return Ok(());
-                                    }
-                                }
-
-                                if buf.is_empty() {
-                                    if options.debug {
-                                        let line = buf.trim_end_matches('\n');
-                                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: syntax error: unterminated string literal: {line}");
-                                    }
-                                    if options.strict {
-                                        return Err(Error::syntax_error(lineno, 1).into());
-                                    }
-                                    options.set_var(&key, &value);
-                                    return Ok(());
-                                }
-
-                                iter = buf.char_indices();
-                            }
-                            '\0' => {
-                                let column = index + 1;
+                        loop {
+                            let Some((next_index, next_ch)) = iter.next() else {
+                                let column = prev_index + 1;
                                 if options.debug {
-                                    eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
+                                    let line = buf.trim_end_matches('\n');
+                                    eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: unterminated string literal: {line}");
                                 }
                                 if options.strict {
                                     return Err(Error::syntax_error(lineno, column));
                                 }
-                                if index > prev_index {
-                                    value.push_str(&buf[prev_index..index]);
-                                }
-                                prev_index = index + 1;
-                            }
-                            _ => {}
-                        }
-                    }
+                                value.push_str(&buf[prev_index..]);
+                                index = buf.len();
+                                break;
+                            };
 
-                    if let Some((index, ch)) = skipws(&mut iter) {
-                        if ch != '#' {
-                            let column = index + 1;
-                            if options.debug {
-                                let line = buf.trim_end_matches('\n');
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: unexpected {ch:?}: {line}");
+                            if next_ch == quote {
+                                if next_index > prev_index {
+                                    value.push_str(&buf[prev_index..next_index]);
+                                }
+                                let Some((next_index, next_ch)) = iter.next() else {
+                                    index = buf.len();
+                                    break;
+                                };
+                                index = next_index;
+                                ch = next_ch;
+                                break;
                             }
-                            if options.strict {
-                                return Err(Error::syntax_error(lineno, column));
+
+                            match next_ch {
+                                '\\' if quote == '"' => {
+                                    if next_index > prev_index {
+                                        value.push_str(&buf[prev_index..next_index]);
+                                    }
+
+                                    if let Some((next_index, next_ch)) = iter.next() {
+                                        match next_ch {
+                                            '\\' => {
+                                                value.push('\\');
+                                                index = next_index + 1;
+                                            }
+                                            '"' => {
+                                                value.push('"');
+                                                index = next_index + 1;
+                                            }
+                                            '\'' => {
+                                                value.push('\'');
+                                                index = next_index + 1;
+                                            }
+                                            'r' => {
+                                                value.push('\r');
+                                                index = next_index + 1;
+                                            }
+                                            'n' => {
+                                                value.push('\n');
+                                                index = next_index + 1;
+                                            }
+                                            't' => {
+                                                value.push('\t');
+                                                index = next_index + 1;
+                                            }
+                                            'f' => {
+                                                value.push('\x0C');
+                                                index = next_index + 1;
+                                            }
+                                            'b' => {
+                                                value.push('\x08');
+                                                index = next_index + 1;
+                                            }
+                                            '\0' => {
+                                                let column = index + 1;
+                                                if options.debug {
+                                                    eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
+                                                }
+                                                if options.strict {
+                                                    return Err(Error::syntax_error(lineno, column));
+                                                }
+                                                value.push('\\');
+                                                index = next_index;
+                                            }
+                                            _ => {
+                                                let column = index + 1;
+                                                index = next_index + 1;
+                                                if options.debug {
+                                                    let escseq = &buf[(index - 2)..index];
+                                                    let line = buf.trim_end_matches('\n');
+                                                    eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}");
+                                                }
+                                                if options.strict {
+                                                    return Err(Error::syntax_error(lineno, column));
+                                                }
+                                                value.push_str(&buf[(index - 2)..index]);
+                                                if next_ch == '\n' {
+                                                    index = 0;
+
+                                                    buf.clear();
+                                                    lineno += 1;
+                                                    if let Err(err) = options.read_line(&mut reader, &mut buf) {
+                                                        if options.debug {
+                                                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: {err}");
+                                                        }
+                                                        if options.strict {
+                                                            return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                                        }
+                                                        if err.kind() == std::io::ErrorKind::InvalidData {
+                                                            iter = buf.char_indices();
+                                                            break;
+                                                        } else {
+                                                            options.set_var(&key, &value);
+                                                            return Ok(());
+                                                        }
+                                                    }
+
+                                                    if buf.is_empty() {
+                                                        if options.debug {
+                                                            let line = buf.trim_end_matches('\n');
+                                                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: syntax error: unterminated string literal: {line}");
+                                                        }
+                                                        if options.strict {
+                                                            return Err(Error::syntax_error(lineno, 1).into());
+                                                        }
+                                                        options.set_var(&key, &value);
+                                                        return Ok(());
+                                                    }
+
+                                                    iter = buf.char_indices();
+                                                }
+                                            }
+                                        }
+                                    } else { // EOF
+                                        let column = index + 1;
+                                        if options.debug {
+                                            let line = buf.trim_end_matches('\n');
+                                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: unexpected end of file within escape seqeunce: {line}");
+                                        }
+                                        if options.strict {
+                                            return Err(Error::syntax_error(lineno, column));
+                                        }
+                                        value.push('\\');
+                                        break;
+                                    }
+                                }
+                                '\n' => {
+                                    index += 1;
+                                    value.push_str(&buf[prev_index..index]);
+                                    index = 0;
+
+                                    buf.clear();
+                                    lineno += 1;
+                                    if let Err(err) = options.read_line(&mut reader, &mut buf) {
+                                        if options.debug {
+                                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: {err}");
+                                        }
+                                        if options.strict {
+                                            return Err(Error::with_cause(ErrorKind::IOError, err));
+                                        }
+                                        if err.kind() == std::io::ErrorKind::InvalidData {
+                                            iter = buf.char_indices();
+                                            break;
+                                        } else {
+                                            options.set_var(&key, &value);
+                                            return Ok(());
+                                        }
+                                    }
+
+                                    if buf.is_empty() {
+                                        if options.debug {
+                                            let line = buf.trim_end_matches('\n');
+                                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: syntax error: unterminated string literal: {line}");
+                                        }
+                                        if options.strict {
+                                            return Err(Error::syntax_error(lineno, 1).into());
+                                        }
+                                        options.set_var(&key, &value);
+                                        return Ok(());
+                                    }
+
+                                    iter = buf.char_indices();
+                                }
+                                '\0' => {
+                                    let column = index + 1;
+                                    if options.debug {
+                                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
+                                    }
+                                    if options.strict {
+                                        return Err(Error::syntax_error(lineno, column));
+                                    }
+                                    if index > prev_index {
+                                        value.push_str(&buf[prev_index..index]);
+                                    }
+                                    index += 1;
+                                }
+                                _ => {}
                             }
                         }
-                    }
-                } else if ch != '#' {
-                    if ch == '\0' {
+                    } else if ch == '#' {
+                        break;
+                    } else if ch == '\0' {
                         let column = index + 1;
                         if options.debug {
                             eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
@@ -400,44 +394,40 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                         if options.strict {
                             return Err(Error::syntax_error(lineno, column));
                         }
-                        index += 1;
-                    }
+                        let Some((next_index, next_ch)) = iter.next() else {
+                            break;
+                        };
+                        ch = next_ch;
+                        index = next_index;
+                    } else {
+                        let prev_index = index;
 
-                    prev_index = index;
+                        while let Some((mut next_index, mut next_ch)) = iter.next() {
+                            if next_ch.is_ascii_whitespace() {
+                                let Some((non_ws_index, non_ws_ch)) = skipws(&mut iter) else {
+                                    ch = '\n';
+                                    index = next_index;
+                                    break;
+                                };
+                                next_index = non_ws_index;
+                                next_ch = non_ws_ch;
+                            }
 
-                    while let Some((mut next_index, mut ch)) = iter.next() {
-                        if ch.is_ascii_whitespace() {
                             index = next_index;
-                            let Some((non_ws_index, next_ch)) = skipws(&mut iter) else {
+                            if next_ch == '#' {
+                                ch = '\n';
                                 break;
-                            };
-                            next_index = non_ws_index;
-                            ch = next_ch;
-
-                            if ch == '#' {
+                            } else if next_ch == '"' || next_ch == '\'' || next_ch == '\0' {
+                                ch = next_ch;
                                 break;
                             }
                         }
 
-                        if ch == '\0' {
-                            let column = next_index + 1;
-                            if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
-                            }
-                            if options.strict {
-                                return Err(Error::syntax_error(lineno, column));
-                            }
-                            if next_index > prev_index {
-                                value.push_str(&buf[prev_index..next_index]);
-                            }
-                            index = next_index + 1;
-                            prev_index = index;
-                        } else {
-                            index = next_index;
+                        value.push_str(&buf[prev_index..index]);
+                        if ch == '\n' {
+                            break;
                         }
                     }
-
-                    value.push_str(&buf[prev_index..index]);
                 }
 
                 options.set_var(&key, &value);
