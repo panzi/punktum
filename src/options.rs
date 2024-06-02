@@ -1,6 +1,6 @@
 use std::{ffi::{OsStr, OsString}, fs::File, io::{BufRead, BufReader}, path::Path};
 
-use crate::{Error, ErrorKind, Result};
+use crate::{Error, ErrorKind, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Encoding {
@@ -108,7 +108,13 @@ impl Options {
     #[inline]
     pub(crate) fn set_var<K: AsRef<OsStr>, V: AsRef<OsStr>>(&self, key: K, value: V) {
         let key = key.as_ref();
-        if self.override_env || std::env::var_os(key).is_none() {
+        if self.override_env {
+            std::env::set_var(key, value);
+        } else if std::env::var_os(key).is_some() {
+            if self.debug {
+                eprintln!("{DEBUG_PREFIX}{key:?} is already defined and was NOT overwritten");
+            }
+        } else {
             std::env::set_var(key, value);
         }
     }
@@ -169,7 +175,6 @@ fn getenv_bool_intern(key: &OsStr, default_value: bool) -> Result<bool> {
         } else if value.eq_ignore_ascii_case("false") || value.is_empty() || value.eq("0") {
             Ok(false)
         } else {
-            eprintln!("illegal value for environment variable {key:?}={value:?}");
             Err(Error::with_cause(
                 ErrorKind::OptionsParseError,
                 IllegalOption::new(key.to_owned(), value, OptionType::Bool)))
