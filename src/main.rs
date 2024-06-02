@@ -9,7 +9,7 @@ fn run() -> dotenv::Result<()> {
     let mut args = std::env::args_os();
     if let Some(program) = args.nth(1) {
         #[cfg(target_family = "unix")]
-        return Err(dotenv::Error::new(
+        return Err(dotenv::Error::with_cause(
             dotenv::ErrorKind::ExecError,
             Command::new(program).args(args).exec()));
 

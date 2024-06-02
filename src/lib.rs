@@ -6,7 +6,7 @@ pub use error::Error;
 pub use error::ErrorKind;
 
 pub mod options;
-use error::SyntaxError;
+use error::SourceLocation;
 pub use options::Options;
 
 pub mod result;
@@ -53,7 +53,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                 eprintln!("{path_str}: {err}");
             }
             if options.strict {
-                return Err(Error::new(ErrorKind::IOError, err));
+                return Err(Error::with_cause(ErrorKind::IOError, err));
             }
         }
         Ok(file) => {
@@ -71,9 +71,13 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                         eprintln!("{path_str}:{lineno}:1: {err}");
                     }
                     if options.strict {
-                        return Err(Error::new(ErrorKind::IOError, err));
+                        return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
                     }
-                    return Ok(());
+                    if err.kind() == std::io::ErrorKind::InvalidData {
+                        continue;
+                    } else {
+                        return Ok(());
+                    }
                 }
 
                 if buf.is_empty() {
@@ -99,7 +103,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                         eprintln!("{path_str}:{lineno}:{column}: syntax error: {line}");
                     }
                     if options.strict {
-                        return Err(SyntaxError::new(lineno, column).into());
+                        return Err(Error::syntax_error(lineno, column));
                     }
                     continue;
                 };
@@ -114,7 +118,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                         eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected {ch:?}: {line}");
                     }
                     if options.strict {
-                        return Err(SyntaxError::new(lineno, column).into());
+                        return Err(Error::syntax_error(lineno, column));
                     }
                     continue;
                 }
@@ -127,7 +131,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                             eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected {ch:?}: {line}");
                         }
                         if options.strict {
-                            return Err(SyntaxError::new(lineno, column).into());
+                            return Err(Error::syntax_error(lineno, column));
                         }
                         continue;
                     }
@@ -139,7 +143,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                             eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected end of line, expected '=': {line}");
                         }
                         if options.strict {
-                            return Err(SyntaxError::new(lineno, column).into());
+                            return Err(Error::syntax_error(lineno, column));
                         }
                         continue;
                     };
@@ -154,7 +158,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                         eprintln!("{path_str}:{lineno}:{column}: syntax error: expected '=', actual {ch:?}: {line}");
                     }
                     if options.strict {
-                        return Err(SyntaxError::new(lineno, column).into());
+                        return Err(Error::syntax_error(lineno, column));
                     }
                     continue;
                 }
@@ -179,7 +183,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                 eprintln!("{path_str}:{lineno}:{column}: syntax error: unterminated string literal: {line}");
                             }
                             if options.strict {
-                                return Err(SyntaxError::new(lineno, column).into());
+                                return Err(Error::syntax_error(lineno, column));
                             }
                             value.push_str(&buf[prev_index..]);
                             break;
@@ -239,7 +243,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                                 eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                                             }
                                             if options.strict {
-                                                return Err(SyntaxError::new(lineno, column).into());
+                                                return Err(Error::syntax_error(lineno, column));
                                             }
                                             value.push('\\');
                                             prev_index = index + 1;
@@ -251,7 +255,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                                 eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce: {line}");
                                             }
                                             if options.strict {
-                                                return Err(SyntaxError::new(lineno, column).into());
+                                                return Err(Error::syntax_error(lineno, column));
                                             }
                                             value.push_str(&buf[(index - 1)..(index + 1)]);
                                             if ch == '\n' {
@@ -264,10 +268,15 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                                         eprintln!("{path_str}:{lineno}:1: {err}");
                                                     }
                                                     if options.strict {
-                                                        return Err(Error::new(ErrorKind::IOError, err));
+                                                        return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
                                                     }
                                                     options.set_var(&key, &value);
-                                                    return Ok(());
+                                                    if err.kind() == std::io::ErrorKind::InvalidData {
+                                                        iter = buf.char_indices();
+                                                        break;
+                                                    } else {
+                                                        return Ok(());
+                                                    }
                                                 }
 
                                                 if buf.is_empty() {
@@ -276,7 +285,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                                         eprintln!("{path_str}:{lineno}:1: syntax error: unterminated string literal: {line}");
                                                     }
                                                     if options.strict {
-                                                        return Err(SyntaxError::new(lineno, 1).into());
+                                                        return Err(Error::syntax_error(lineno, 1).into());
                                                     }
                                                     options.set_var(&key, &value);
                                                     return Ok(());
@@ -295,7 +304,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                         eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected end of line within escape seqeunce: {line}");
                                     }
                                     if options.strict {
-                                        return Err(SyntaxError::new(lineno, column).into());
+                                        return Err(Error::syntax_error(lineno, column));
                                     }
                                     value.push('\\');
                                     prev_index = index;
@@ -313,10 +322,15 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                         eprintln!("{path_str}:{lineno}:1: {err}");
                                     }
                                     if options.strict {
-                                        return Err(Error::new(ErrorKind::IOError, err));
+                                        return Err(Error::with_cause(ErrorKind::IOError, err));
                                     }
                                     options.set_var(&key, &value);
-                                    return Ok(());
+                                    if err.kind() == std::io::ErrorKind::InvalidData {
+                                        iter = buf.char_indices();
+                                        break;
+                                    } else {
+                                        return Ok(());
+                                    }
                                 }
 
                                 if buf.is_empty() {
@@ -325,7 +339,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                         eprintln!("{path_str}:{lineno}:1: syntax error: unterminated string literal: {line}");
                                     }
                                     if options.strict {
-                                        return Err(SyntaxError::new(lineno, 1).into());
+                                        return Err(Error::syntax_error(lineno, 1).into());
                                     }
                                     options.set_var(&key, &value);
                                     return Ok(());
@@ -339,7 +353,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                     eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                                 }
                                 if options.strict {
-                                    return Err(SyntaxError::new(lineno, column).into());
+                                    return Err(Error::syntax_error(lineno, column));
                                 }
                                 if index > prev_index {
                                     value.push_str(&buf[prev_index..index]);
@@ -358,7 +372,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                 eprintln!("{path_str}:{lineno}:{column}: syntax error: unexpected {ch:?}: {line}");
                             }
                             if options.strict {
-                                return Err(SyntaxError::new(lineno, column).into());
+                                return Err(Error::syntax_error(lineno, column));
                             }
                         }
                     }
@@ -369,7 +383,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                             eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                         }
                         if options.strict {
-                            return Err(SyntaxError::new(lineno, column).into());
+                            return Err(Error::syntax_error(lineno, column));
                         }
                         index += 1;
                     }
@@ -396,7 +410,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                 eprintln!("{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                             }
                             if options.strict {
-                                return Err(SyntaxError::new(lineno, column).into());
+                                return Err(Error::syntax_error(lineno, column));
                             }
                             if next_index > prev_index {
                                 value.push_str(&buf[prev_index..next_index]);

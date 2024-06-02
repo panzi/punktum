@@ -30,7 +30,7 @@ impl TryFrom<&OsStr> for Encoding {
             Ok(Encoding::ASCII)
         } else if value.eq_ignore_ascii_case("latin1") || value.eq_ignore_ascii_case("iso-8859-1") {
             Ok(Encoding::Latin1)
-        } else if value.eq_ignore_ascii_case("utf-8") || value.eq_ignore_ascii_case("utf-8") {
+        } else if value.eq_ignore_ascii_case("utf-8") || value.eq_ignore_ascii_case("utf8") {
             Ok(Encoding::UTF8)
         } else {
             Err(IllegalEncoding())
@@ -90,7 +90,7 @@ impl Options {
         let encoding = std::env::var_os(encoding_key);
         let encoding = if let Some(encoding) = encoding {
             let Ok(encoding) = Encoding::try_from(encoding.as_os_str()) else {
-                return Err(Error::new(
+                return Err(Error::with_cause(
                     ErrorKind::OptionsParseError,
                     IllegalOption::new(
                         encoding_key.to_owned(),
@@ -170,7 +170,7 @@ fn getenv_bool_intern(key: &OsStr, default_value: bool) -> Result<bool> {
             Ok(false)
         } else {
             eprintln!("illegal value for environment variable {key:?}={value:?}");
-            Err(Error::new(
+            Err(Error::with_cause(
                 ErrorKind::OptionsParseError,
                 IllegalOption::new(key.to_owned(), value, OptionType::Bool)))
         }
