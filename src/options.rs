@@ -1,6 +1,6 @@
 use std::{ffi::{OsStr, OsString}, fs::File, io::{BufRead, BufReader}, path::Path};
 
-use crate::{Error, ErrorKind, Result, DEBUG_PREFIX};
+use crate::{env::SystemEnv, Env, Error, ErrorKind, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Encoding {
@@ -54,8 +54,9 @@ impl Default for Encoding {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Options {
+#[derive(Debug, PartialEq, Clone)]
+pub struct Options<P=OsString>
+where P: AsRef<Path> + Clone {
     /// Override existing environment variables.
     pub override_env: bool,
 
@@ -66,6 +67,13 @@ pub struct Options {
     pub debug: bool,
 
     pub encoding: Encoding,
+
+    pub path: P,
+}
+
+#[inline]
+pub fn default_path() -> OsString {
+    OsString::from(".env")
 }
 
 impl Default for Options {
@@ -76,57 +84,53 @@ impl Default for Options {
             strict: true,
             debug: false,
             encoding: Encoding::default(),
+            path: default_path(),
         }
     }
 }
 
 impl Options {
-    pub fn from_env() -> Result<Self> {
-        let override_env = getenv_bool("DOTENV_CONFIG_OVERRIDE", false)?;
-        let strict = getenv_bool("DOTENV_CONFIG_STRICT", true)?; // extension!
-        let debug = getenv_bool("DOTENV_CONFIG_DEBUG", false)?;
+    pub fn try_from<E: Env>(env: impl AsRef<E>) -> Result<Self> {
+        let env = env.as_ref();
+        let override_env = env.get_override_env()?;
+        let strict = env.get_strict()?;
+        let debug = env.get_debug()?;
+        let encoding = env.get_encoding()?;
+        let path = env.get_config_path();
 
-        let encoding_key = OsStr::new("DOTENV_CONFIG_ENCODING");
-        let encoding = std::env::var_os(encoding_key);
-        let encoding = if let Some(encoding) = encoding {
-            let Ok(encoding) = Encoding::try_from(encoding.as_os_str()) else {
-                return Err(Error::with_cause(
-                    ErrorKind::OptionsParseError,
-                    IllegalOption::new(
-                        encoding_key.to_owned(),
-                        encoding,
-                        OptionType::Encoding)));
-            };
-            encoding
-        } else {
-            Encoding::default()
-        };
-
-        Ok(Self { override_env, strict, debug, encoding })
+        Ok(Self { override_env, strict, debug, encoding, path })
     }
 
     #[inline]
-    pub(crate) fn set_var<K: AsRef<OsStr>, V: AsRef<OsStr>>(&self, key: K, value: V) {
+    pub fn try_from_env() -> Result<Self> {
+        Self::try_from(SystemEnv::get())
+    }
+}
+
+impl<P> Options<P>
+where P: AsRef<Path> + Clone {
+    #[inline]
+    pub fn config(&self) -> Result<()> {
+        crate::config_from(SystemEnv::get(), self)
+    }
+
+    #[inline]
+    pub fn config_env<E: Env>(&self, env: impl AsMut<E>) -> Result<()> {
+        crate::config_from(env, self)
+    }
+
+    #[inline]
+    pub(crate) fn set_var(&self, env: &mut impl Env, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
         let key = key.as_ref();
         if self.override_env {
-            std::env::set_var(key, value);
-        } else if std::env::var_os(key).is_some() {
+            env.set(key, value);
+        } else if env.get(key).is_some() {
             if self.debug {
                 eprintln!("{DEBUG_PREFIX}{key:?} is already defined and was NOT overwritten");
             }
         } else {
-            std::env::set_var(key, value);
+            env.set(key, value);
         }
-    }
-
-    #[inline]
-    pub fn load(&self) -> Result<()> {
-        crate::load_from(config_path(), self)
-    }
-
-    #[inline]
-    pub fn load_from(&self, path: impl AsRef<Path>) -> Result<()> {
-        crate::load_from(path, self)
     }
 
     pub(crate) fn read_line(&self, reader: &mut BufReader<File>, line: &mut String) -> std::io::Result<usize> {
@@ -159,17 +163,12 @@ impl Options {
 }
 
 #[inline]
-pub fn config_path() -> OsString {
-    std::env::var_os("DOTENV_CONFIG_PATH").unwrap_or(OsString::from(".env"))
+pub(crate) fn getenv_bool<E: Env>(env: &E, key: impl AsRef<OsStr>, default_value: bool) -> Result<bool> {
+    getenv_bool_intern(env, key.as_ref(), default_value)
 }
 
-#[inline]
-fn getenv_bool(key: impl AsRef<OsStr>, default_value: bool) -> Result<bool> {
-    getenv_bool_intern(key.as_ref(), default_value)
-}
-
-fn getenv_bool_intern(key: &OsStr, default_value: bool) -> Result<bool> {
-    if let Some(value) = std::env::var_os(key) {
+fn getenv_bool_intern<E: Env>(env: &E, key: &OsStr, default_value: bool) -> Result<bool> {
+    if let Some(value) = env.get(key) {
         if value.eq_ignore_ascii_case("true") || value.eq("1") {
             Ok(true)
         } else if value.eq_ignore_ascii_case("false") || value.is_empty() || value.eq("0") {
@@ -234,9 +233,17 @@ impl std::fmt::Display for IllegalOption {
 
 impl std::error::Error for IllegalOption {}
 
-#[derive(Debug, PartialEq, Clone, Copy, Default)]
-pub struct Builder {
-    options: Options
+#[derive(Debug, PartialEq, Clone)]
+pub struct Builder<P=OsString>
+where P: AsRef<Path> + Clone {
+    options: Options<P>,
+}
+
+impl Default for Builder {
+    #[inline]
+    fn default() -> Self {
+        Self { options: Options::default() }
+    }
 }
 
 impl Builder {
@@ -246,11 +253,20 @@ impl Builder {
     }
 
     #[inline]
-    pub fn from_env() -> Result<Self> {
-        let options = Options::from_env()?;
+    pub fn try_from<E: Env>(env: impl AsRef<E>) -> Result<Self> {
+        let options = Options::try_from(env)?;
         Ok(Self { options })
     }
 
+    #[inline]
+    pub fn try_from_env() -> Result<Self> {
+        let options = Options::try_from_env()?;
+        Ok(Self { options })
+    }
+}
+
+impl<P> Builder<P>
+where P: AsRef<Path> + Clone {
     #[inline]
     pub fn override_env(mut self, value: bool) -> Self {
         self.options.override_env = value;
@@ -275,28 +291,41 @@ impl Builder {
         self
     }
 
+    pub fn path<NewP>(&self, value: NewP) -> Builder<NewP>
+    where NewP: AsRef<Path> + Clone {
+        Builder {
+            options: Options {
+                override_env: self.options.override_env,
+                debug: self.options.debug,
+                strict: self.options.strict,
+                encoding: self.options.encoding,
+                path: value,
+            }
+        }
+    }
+
     #[inline]
-    pub fn options(&self) -> &Options {
+    pub fn options(&self) -> &Options<P> {
         &self.options
     }
 
     #[inline]
-    pub fn options_mut(&mut self) -> &mut Options {
+    pub fn options_mut(&mut self) -> &mut Options<P> {
         &mut self.options
     }
 
     #[inline]
-    pub fn into_options(self) -> Options {
+    pub fn into_options(self) -> Options<P> {
         self.options
     }
 
     #[inline]
-    pub fn load(&self) -> Result<()> {
-        self.options.load()
+    pub fn config(&self) -> Result<()> {
+        self.options.config()
     }
 
     #[inline]
-    pub fn load_from(&self, path: impl AsRef<Path>) -> Result<()> {
-        self.options.load_from(path)
+    pub fn config_env<E: Env>(&self, env: impl AsMut<E>) -> Result<()> {
+        self.options.config_env(env)
     }
 }

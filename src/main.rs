@@ -3,8 +3,8 @@ use std::process::Command;
 #[cfg(target_family = "unix")]
 use std::os::unix::process::CommandExt;
 
-fn run() -> dotenv::Result<()> {
-    dotenv::load()?;
+fn exec() -> dotenv::Result<()> {
+    dotenv::config()?;
 
     let mut args = std::env::args_os();
     if let Some(program) = args.nth(1) {
@@ -24,7 +24,7 @@ fn run() -> dotenv::Result<()> {
 }
 
 fn main() {
-    if let Err(error) = run() {
+    if let Err(error) = exec() {
         eprintln!("{error}");
         std::process::exit(1);
     }

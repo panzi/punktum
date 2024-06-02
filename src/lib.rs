@@ -2,6 +2,7 @@ use std::str::CharIndices;
 use std::{fs::File, io::BufReader, path::Path};
 
 pub mod error;
+use env::SystemEnv;
 pub use error::Error;
 pub use error::ErrorKind;
 
@@ -12,17 +13,15 @@ pub use options::Options;
 pub mod result;
 pub use result::Result;
 
+pub mod env;
+pub use env::Env;
+
 pub(crate) const DEBUG_PREFIX: &str = concat!("[", env!("CARGO_PKG_NAME"), "@", env!("CARGO_PKG_VERSION"), "][DEBUG] ");
 
 #[inline]
-pub fn load() -> Result<()> {
-    let options = Options::from_env()?;
-    load_from(options::config_path(), &options)
-}
-
-#[inline]
-pub fn load_from(path: impl AsRef<Path>, options: &Options) -> Result<()> {
-    load_from_intern(path.as_ref(), options)
+pub fn config() -> Result<()> {
+    let options = Options::try_from_env()?;
+    config_from(SystemEnv::get(), &options)
 }
 
 fn skipws(iter: &mut CharIndices) -> Option<(usize, char)> {
@@ -45,7 +44,10 @@ fn skip_word(iter: &mut CharIndices) -> Option<(usize, char)> {
     None
 }
 
-fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
+fn config_from<P, E: Env>(mut env: impl AsMut<E>, options: &Options<P>) -> Result<()>
+where P: AsRef<Path> + Clone {
+    let env = env.as_mut();
+    let path = options.path.as_ref();
     let file = File::open(path);
     let path_str = path.to_string_lossy();
 
@@ -179,7 +181,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
 
                 value.clear();
                 let Some((next_index, next_ch)) = skipws(&mut iter) else {
-                    options.set_var(&key, &value);
+                    options.set_var(env, &key, &value);
                     continue;
                 };
                 index = next_index;
@@ -307,7 +309,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                                             iter = buf.char_indices();
                                                             break;
                                                         } else {
-                                                            options.set_var(&key, &value);
+                                                            options.set_var(env, &key, &value);
                                                             return Ok(());
                                                         }
                                                     }
@@ -320,7 +322,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                                         if options.strict {
                                                             return Err(Error::syntax_error(lineno, 1).into());
                                                         }
-                                                        options.set_var(&key, &value);
+                                                        options.set_var(env, &key, &value);
                                                         return Ok(());
                                                     }
 
@@ -360,7 +362,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                             iter = buf.char_indices();
                                             break;
                                         } else {
-                                            options.set_var(&key, &value);
+                                            options.set_var(env, &key, &value);
                                             return Ok(());
                                         }
                                     }
@@ -373,7 +375,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                         if options.strict {
                                             return Err(Error::syntax_error(lineno, 1).into());
                                         }
-                                        options.set_var(&key, &value);
+                                        options.set_var(env, &key, &value);
                                         return Ok(());
                                     }
 
@@ -478,7 +480,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                     }
                 }
 
-                options.set_var(&key, &value);
+                options.set_var(env, &key, &value);
             }
         }
     }
