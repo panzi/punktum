@@ -1,6 +1,6 @@
 use std::{ffi::{OsStr, OsString}, fs::File, io::{BufRead, BufReader}, path::Path};
 
-use crate::{env::SystemEnv, Env, Error, ErrorKind, Result, DEBUG_PREFIX};
+use crate::{env::{GetEnv, SystemEnv}, Env, Error, ErrorKind, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Encoding {
@@ -90,8 +90,7 @@ impl Default for Options {
 }
 
 impl Options {
-    pub fn try_from<E: Env>(env: impl AsRef<E>) -> Result<Self> {
-        let env = env.as_ref();
+    pub fn try_from<E: GetEnv>(env: &E) -> Result<Self> {
         let override_env = env.get_override_env()?;
         let strict = env.get_strict()?;
         let debug = env.get_debug()?;
@@ -103,7 +102,7 @@ impl Options {
 
     #[inline]
     pub fn try_from_env() -> Result<Self> {
-        Self::try_from(SystemEnv::get())
+        Self::try_from(&SystemEnv::get())
     }
 }
 
@@ -111,12 +110,12 @@ impl<P> Options<P>
 where P: AsRef<Path> + Clone {
     #[inline]
     pub fn config(&self) -> Result<()> {
-        crate::config_from(SystemEnv::get(), self)
+        crate::config_with(&mut SystemEnv::get(), self)
     }
 
     #[inline]
-    pub fn config_env<E: Env>(&self, env: impl AsMut<E>) -> Result<()> {
-        crate::config_from(env, self)
+    pub fn config_env<E: Env>(&self, env: &mut E) -> Result<()> {
+        crate::config_with(env, self)
     }
 
     #[inline]
@@ -163,11 +162,11 @@ where P: AsRef<Path> + Clone {
 }
 
 #[inline]
-pub(crate) fn getenv_bool<E: Env>(env: &E, key: impl AsRef<OsStr>, default_value: bool) -> Result<bool> {
+pub(crate) fn getenv_bool<E: GetEnv>(env: &E, key: impl AsRef<OsStr>, default_value: bool) -> Result<bool> {
     getenv_bool_intern(env, key.as_ref(), default_value)
 }
 
-fn getenv_bool_intern<E: Env>(env: &E, key: &OsStr, default_value: bool) -> Result<bool> {
+fn getenv_bool_intern<E: GetEnv>(env: &E, key: &OsStr, default_value: bool) -> Result<bool> {
     if let Some(value) = env.get(key) {
         if value.eq_ignore_ascii_case("true") || value.eq("1") {
             Ok(true)
@@ -253,7 +252,7 @@ impl Builder {
     }
 
     #[inline]
-    pub fn try_from<E: Env>(env: impl AsRef<E>) -> Result<Self> {
+    pub fn try_from<E: GetEnv>(env: &E) -> Result<Self> {
         let options = Options::try_from(env)?;
         Ok(Self { options })
     }
@@ -325,7 +324,35 @@ where P: AsRef<Path> + Clone {
     }
 
     #[inline]
-    pub fn config_env<E: Env>(&self, env: impl AsMut<E>) -> Result<()> {
+    pub fn config_env<E: Env>(&self, env: &mut E) -> Result<()> {
         self.options.config_env(env)
+    }
+}
+
+impl<P> From<Options<P>> for Builder<P>
+where P: AsRef<Path> + Clone {
+    #[inline]
+    fn from(options: Options<P>) -> Self {
+        Self {
+            options
+        }
+    }
+}
+
+impl<P> From<&Options<P>> for Builder<P>
+where P: AsRef<Path> + Clone {
+    #[inline]
+    fn from(options: &Options<P>) -> Self {
+        Self {
+            options: options.clone()
+        }
+    }
+}
+
+impl<P> From<Builder<P>> for Options<P>
+where P: AsRef<Path> + Clone {
+    #[inline]
+    fn from(value: Builder<P>) -> Self {
+        value.into_options()
     }
 }

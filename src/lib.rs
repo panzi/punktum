@@ -2,26 +2,47 @@ use std::str::CharIndices;
 use std::{fs::File, io::BufReader, path::Path};
 
 pub mod error;
-use env::SystemEnv;
 pub use error::Error;
 pub use error::ErrorKind;
+use error::SourceLocation;
 
 pub mod options;
-use error::SourceLocation;
 pub use options::Options;
+use options::Builder;
 
 pub mod result;
 pub use result::Result;
 
 pub mod env;
 pub use env::Env;
+use env::{GetEnv, SystemEnv};
 
 pub(crate) const DEBUG_PREFIX: &str = concat!("[", env!("CARGO_PKG_NAME"), "@", env!("CARGO_PKG_VERSION"), "][DEBUG] ");
 
 #[inline]
+pub fn build() -> Builder {
+    Builder::new()
+}
+
+#[inline]
+pub fn build_from<E: GetEnv>(env: &E) -> Result<Builder> {
+    Builder::try_from(env)
+}
+
+#[inline]
+pub fn build_from_env() -> Result<Builder> {
+    Builder::try_from_env()
+}
+
+#[inline]
+pub fn system_env() -> SystemEnv {
+    SystemEnv::get()
+}
+
+#[inline]
 pub fn config() -> Result<()> {
     let options = Options::try_from_env()?;
-    config_from(SystemEnv::get(), &options)
+    config_with(&mut SystemEnv::get(), &options)
 }
 
 fn skipws(iter: &mut CharIndices) -> Option<(usize, char)> {
@@ -44,9 +65,8 @@ fn skip_word(iter: &mut CharIndices) -> Option<(usize, char)> {
     None
 }
 
-fn config_from<P, E: Env>(mut env: impl AsMut<E>, options: &Options<P>) -> Result<()>
+pub fn config_with<P, E: Env>(env: &mut E, options: &Options<P>) -> Result<()>
 where P: AsRef<Path> + Clone {
-    let env = env.as_mut();
     let path = options.path.as_ref();
     let file = File::open(path);
     let path_str = path.to_string_lossy();

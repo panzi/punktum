@@ -2,9 +2,8 @@ use std::{collections::HashMap, ffi::{OsStr, OsString}, hash::BuildHasher, sync:
 
 use crate::{options::{default_path, getenv_bool, Encoding, IllegalOption, OptionType}, Error, ErrorKind, Result};
 
-pub trait Env {
+pub trait GetEnv {
     fn get(&self, key: impl AsRef<OsStr>) -> Option<OsString>;
-    fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>);
 
     #[inline]
     fn get_config_path(&self) -> OsString {
@@ -51,6 +50,10 @@ pub trait Env {
 
         Ok(encoding)
     }
+}
+
+pub trait Env: GetEnv {
+    fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>);
 }
 
 /// Accessing the environment is unsafe (not thread safe), but the std::env::*
@@ -117,13 +120,15 @@ impl AsMut<SystemEnv> for SystemEnv {
     }
 }
 
-impl Env for SystemEnv {
+impl GetEnv for SystemEnv {
     fn get(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
         let _lock = MUTEX.lock();
 
         std::env::var_os(key)
     }
+}
 
+impl Env for SystemEnv {
     fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
         let _lock = MUTEX.lock();
 
@@ -131,24 +136,28 @@ impl Env for SystemEnv {
     }
 }
 
-impl<BH: BuildHasher> Env for HashMap<OsString, OsString, BH> {
+impl<BH: BuildHasher> GetEnv for HashMap<OsString, OsString, BH> {
     #[inline]
     fn get(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
         HashMap::get(self, key.as_ref()).map(|value| value.to_os_string())
     }
+}
 
+impl<BH: BuildHasher> Env for HashMap<OsString, OsString, BH> {
     #[inline]
     fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
         self.insert(key.as_ref().to_os_string(), value.as_ref().to_os_string());
     }
 }
 
-impl<BH: BuildHasher> Env for HashMap<String, String, BH> {
+impl<BH: BuildHasher> GetEnv for HashMap<String, String, BH> {
     #[inline]
     fn get(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
         HashMap::get(self, key.as_ref().to_string_lossy().as_ref()).map(|value| value.into())
     }
+}
 
+impl<BH: BuildHasher> Env for HashMap<String, String, BH> {
     #[inline]
     fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
         self.insert(key.as_ref().to_string_lossy().into_owned(), value.as_ref().to_string_lossy().into_owned());
