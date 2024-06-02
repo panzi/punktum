@@ -188,7 +188,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                 while index < buf.len() {
                     if ch == '"' || ch == '\'' {
                         let quote = ch;
-                        let prev_index = index + 1;
+                        let mut prev_index = index + 1;
 
                         loop {
                             let Some((next_index, next_ch)) = iter.next() else {
@@ -229,37 +229,46 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                             '\\' => {
                                                 value.push('\\');
                                                 index = next_index + 1;
+                                                prev_index = index;
                                             }
                                             '"' => {
                                                 value.push('"');
                                                 index = next_index + 1;
+                                                prev_index = index;
                                             }
                                             '\'' => {
                                                 value.push('\'');
                                                 index = next_index + 1;
+                                                prev_index = index;
                                             }
                                             'r' => {
                                                 value.push('\r');
                                                 index = next_index + 1;
+                                                prev_index = index;
                                             }
                                             'n' => {
                                                 value.push('\n');
                                                 index = next_index + 1;
+                                                prev_index = index;
                                             }
                                             't' => {
                                                 value.push('\t');
                                                 index = next_index + 1;
+                                                prev_index = index;
                                             }
                                             'f' => {
                                                 value.push('\x0C');
                                                 index = next_index + 1;
+                                                prev_index = index;
                                             }
                                             'b' => {
                                                 value.push('\x08');
                                                 index = next_index + 1;
+                                                prev_index = index;
                                             }
                                             '\0' => {
-                                                let column = index + 1;
+                                                index = next_index + 1;
+                                                let column = next_index + 1;
                                                 if options.debug {
                                                     eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                                                 }
@@ -267,11 +276,11 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                                     return Err(Error::syntax_error(lineno, column));
                                                 }
                                                 value.push('\\');
-                                                index = next_index;
+                                                prev_index = index;
                                             }
                                             _ => {
-                                                let column = index + 1;
                                                 index = next_index + 1;
+                                                let column = next_index + 1;
                                                 if options.debug {
                                                     let escseq = &buf[(index - 2)..index];
                                                     let line = buf.trim_end_matches('\n');
@@ -280,9 +289,10 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                                 if options.strict {
                                                     return Err(Error::syntax_error(lineno, column));
                                                 }
-                                                value.push_str(&buf[(index - 2)..index]);
                                                 if next_ch == '\n' {
+                                                    value.push_str(&buf[(index - 2)..index]);
                                                     index = 0;
+                                                    prev_index = index;
 
                                                     buf.clear();
                                                     lineno += 1;
@@ -319,7 +329,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                             }
                                         }
                                     } else { // EOF
-                                        let column = index + 1;
+                                        let column = next_index + 1;
                                         if options.debug {
                                             let line = buf.trim_end_matches('\n');
                                             eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: unexpected end of file within escape seqeunce: {line}");
@@ -332,9 +342,10 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                     }
                                 }
                                 '\n' => {
-                                    index += 1;
+                                    index = next_index + 1;
                                     value.push_str(&buf[prev_index..index]);
                                     index = 0;
+                                    prev_index = index;
 
                                     buf.clear();
                                     lineno += 1;
@@ -369,7 +380,7 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                     iter = buf.char_indices();
                                 }
                                 '\0' => {
-                                    let column = index + 1;
+                                    let column = next_index + 1;
                                     if options.debug {
                                         eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal null byte: {buf:?}");
                                     }
@@ -379,9 +390,12 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                     if index > prev_index {
                                         value.push_str(&buf[prev_index..index]);
                                     }
-                                    index += 1;
+                                    index = next_index + 1;
+                                    prev_index = index;
                                 }
-                                _ => {}
+                                _ => {
+                                    index = next_index + 1;
+                                }
                             }
                         }
                     } else if ch == '#' {
@@ -402,13 +416,44 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                     } else {
                         let prev_index = index;
 
+                        if ch.is_ascii_whitespace() {
+                            let Some((non_ws_index, non_ws_ch)) = skipws(&mut iter) else {
+                                // ignore trailing space
+                                break;
+                            };
+
+                            if non_ws_ch == '#' {
+                                // ignore trailing space before comment
+                                break;
+                            }
+
+                            index = non_ws_index;
+                            ch = non_ws_ch;
+
+                            if ch == '"' || ch == '\'' || ch == '\0' {
+                                if index > prev_index {
+                                    value.push_str(&buf[prev_index..index]);
+                                }
+                                continue;
+                            }
+                        }
+
                         while let Some((mut next_index, mut next_ch)) = iter.next() {
                             if next_ch.is_ascii_whitespace() {
                                 let Some((non_ws_index, non_ws_ch)) = skipws(&mut iter) else {
-                                    ch = '\n';
+                                    // ignore trailing space
                                     index = next_index;
+                                    ch = '\n';
                                     break;
                                 };
+
+                                if non_ws_ch == '#' {
+                                    // ignore trailing space before comment
+                                    index = next_index;
+                                    ch = '\n';
+                                    break;
+                                }
+
                                 next_index = non_ws_index;
                                 next_ch = non_ws_ch;
                             }
@@ -423,7 +468,10 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                             }
                         }
 
-                        value.push_str(&buf[prev_index..index]);
+                        if index > prev_index {
+                            value.push_str(&buf[prev_index..index]);
+                        }
+
                         if ch == '\n' {
                             break;
                         }
