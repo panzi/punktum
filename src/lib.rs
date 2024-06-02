@@ -285,11 +285,11 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                                     if options.strict {
                                                         return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
                                                     }
-                                                    options.set_var(&key, &value);
                                                     if err.kind() == std::io::ErrorKind::InvalidData {
                                                         iter = buf.char_indices();
                                                         break;
                                                     } else {
+                                                        options.set_var(&key, &value);
                                                         return Ok(());
                                                     }
                                                 }
@@ -339,11 +339,11 @@ fn load_from_intern(path: &Path, options: &Options) -> Result<()> {
                                     if options.strict {
                                         return Err(Error::with_cause(ErrorKind::IOError, err));
                                     }
-                                    options.set_var(&key, &value);
                                     if err.kind() == std::io::ErrorKind::InvalidData {
                                         iter = buf.char_indices();
                                         break;
                                     } else {
+                                        options.set_var(&key, &value);
                                         return Ok(());
                                     }
                                 }
