@@ -198,15 +198,78 @@ pub fn config_with_intern(env: &mut dyn Env, options: &Options<&Path>) -> Result
                 }
 
                 if ch != '=' {
-                    let column = index + 1;
-                    if options.debug {
-                        let line = buf.trim_end_matches('\n');
-                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: expected '=', actual {ch:?}: {line}");
+                    if !options.strict && key.eq("export") && (ch.is_ascii_alphanumeric() || ch == '_') {
+                        // allow `export FOO=BAR`
+                        key.clear();
+
+                        let prev_index = index;
+                        let Some((next_index, next_ch)) = skip_word(&mut iter) else {
+                            let column = prev_index + 1;
+                            if options.debug {
+                                let line = buf.trim_end_matches('\n');
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: unexpected end of line, expected variable name: {line}");
+                            }
+                            if options.strict {
+                                return Err(Error::syntax_error(lineno, column));
+                            }
+                            continue;
+                        };
+
+                        index = next_index;
+                        ch = next_ch;
+
+                        key.push_str(&buf[prev_index..index]);
+
+                        if key.is_empty() {
+                            let column = index + 1;
+                            if options.debug {
+                                let line = buf.trim_end_matches('\n');
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: unexpected {ch:?}: {line}");
+                            }
+                            if options.strict {
+                                return Err(Error::syntax_error(lineno, column));
+                            }
+                            continue;
+                        }
+
+                        if ch.is_whitespace() {
+                            let Some((next_index, next_ch)) = skipws(&mut iter) else {
+                                let column = index + 1;
+                                if options.debug {
+                                    let line = buf.trim_end_matches('\n');
+                                    eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: unexpected end of line, expected '=': {line}");
+                                }
+                                if options.strict {
+                                    return Err(Error::syntax_error(lineno, column));
+                                }
+                                continue;
+                            };
+                            index = next_index;
+                            ch = next_ch;
+                        }
+
+                        if ch != '=' {
+                            let column = index + 1;
+                            if options.debug {
+                                let line = buf.trim_end_matches('\n');
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: expected '=', actual {ch:?}: {line}");
+                            }
+                            if options.strict {
+                                return Err(Error::syntax_error(lineno, column));
+                            }
+                            continue;
+                        }
+                    } else {
+                        let column = index + 1;
+                        if options.debug {
+                            let line = buf.trim_end_matches('\n');
+                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: expected '=', actual {ch:?}: {line}");
+                        }
+                        if options.strict {
+                            return Err(Error::syntax_error(lineno, column));
+                        }
+                        continue;
                     }
-                    if options.strict {
-                        return Err(Error::syntax_error(lineno, column));
-                    }
-                    continue;
                 }
 
                 value.clear();
