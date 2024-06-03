@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ffi::{OsStr, OsString}, hash::BuildHasher, sync::Mutex};
 
-use crate::{options::{default_path, Encoding, IllegalOption, OptionType}, Error, ErrorKind, Result};
+use crate::{options::{default_path, IllegalOption, OptionType}, Encoding, Error, ErrorKind, Result};
 
 pub trait GetEnv {
     fn get(&self, key: &OsStr) -> Option<OsString>;

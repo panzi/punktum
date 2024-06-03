@@ -17,6 +17,9 @@ pub mod env;
 pub use env::Env;
 use env::{GetEnv, SystemEnv};
 
+pub mod encoding;
+pub use encoding::Encoding;
+
 pub(crate) const DEBUG_PREFIX: &str = concat!("[", env!("CARGO_PKG_NAME"), "@", env!("CARGO_PKG_VERSION"), "][DEBUG] ");
 
 #[inline]
@@ -100,7 +103,7 @@ pub fn config_with_intern(env: &mut dyn Env, options: &Options<&Path>) -> Result
             loop {
                 buf.clear();
                 lineno += 1;
-                if let Err(err) = options.read_line(&mut reader, &mut buf) {
+                if let Err(err) = options.encoding.read_line(&mut reader, &mut buf) {
                     if options.debug {
                         eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: {err}");
                     }
@@ -396,7 +399,7 @@ pub fn config_with_intern(env: &mut dyn Env, options: &Options<&Path>) -> Result
 
                                                     buf.clear();
                                                     lineno += 1;
-                                                    if let Err(err) = options.read_line(&mut reader, &mut buf) {
+                                                    if let Err(err) = options.encoding.read_line(&mut reader, &mut buf) {
                                                         if options.debug {
                                                             eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: {err}");
                                                         }
@@ -449,7 +452,7 @@ pub fn config_with_intern(env: &mut dyn Env, options: &Options<&Path>) -> Result
 
                                     buf.clear();
                                     lineno += 1;
-                                    if let Err(err) = options.read_line(&mut reader, &mut buf) {
+                                    if let Err(err) = options.encoding.read_line(&mut reader, &mut buf) {
                                         if options.debug {
                                             eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:1: {err}");
                                         }

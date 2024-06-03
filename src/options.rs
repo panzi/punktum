@@ -1,67 +1,6 @@
-use std::{ffi::{OsStr, OsString}, fs::File, io::{BufRead, BufReader}, path::Path};
+use std::{ffi::{OsStr, OsString}, path::Path};
 
-use crate::{env::{GetEnv, SystemEnv}, Env, Result, DEBUG_PREFIX};
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Encoding {
-    ASCII,
-    /// aka ISO-8859-1
-    Latin1,
-    UTF8,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct IllegalEncoding();
-
-impl std::fmt::Display for IllegalEncoding {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        "IllegalEncoding".fmt(f)
-    }
-}
-
-impl std::error::Error for IllegalEncoding {}
-
-impl TryFrom<&OsStr> for Encoding {
-    type Error = IllegalEncoding;
-
-    fn try_from(value: &OsStr) -> std::result::Result<Self, Self::Error> {
-        if value.eq_ignore_ascii_case("utf-8") ||
-           value.eq_ignore_ascii_case("utf8") ||
-           value.eq_ignore_ascii_case("windows-65001") {
-            Ok(Encoding::UTF8)
-        } else if value.eq_ignore_ascii_case("ascii") ||
-                  value.eq_ignore_ascii_case("us-ascii") ||
-                  value.eq_ignore_ascii_case("windows-20127") {
-            Ok(Encoding::ASCII)
-        } else if value.eq_ignore_ascii_case("latin1") ||
-                  value.eq_ignore_ascii_case("iso-8859-1") ||
-                  value.eq_ignore_ascii_case("iso8859-1") ||
-                  value.eq_ignore_ascii_case("iso8859_1") ||
-                  value.eq_ignore_ascii_case("windows-28591") ||
-                  value.eq_ignore_ascii_case("cp819") {
-            Ok(Encoding::Latin1)
-        } else {
-            Err(IllegalEncoding())
-        }
-    }
-}
-
-impl std::str::FromStr for Encoding {
-    type Err = IllegalEncoding;
-
-    #[inline]
-    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
-        Encoding::try_from(value.as_ref())
-    }
-}
-
-impl Default for Encoding {
-    #[inline]
-    fn default() -> Self {
-        Encoding::UTF8
-    }
-}
+use crate::{encoding::Encoding, env::{GetEnv, SystemEnv}, Env, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options<P=OsString>
@@ -138,34 +77,6 @@ where P: AsRef<Path> + Clone {
             }
         } else {
             env.set(key, value);
-        }
-    }
-
-    pub(crate) fn read_line(&self, reader: &mut BufReader<File>, line: &mut String) -> std::io::Result<usize> {
-        match self.encoding {
-            Encoding::UTF8 => reader.read_line(line),
-            Encoding::ASCII => {
-                let mut buf = Vec::new();
-                let num_bytes = reader.read_until('\n' as u8, &mut buf)?;
-
-                for byte in buf.iter().cloned() {
-                    if byte > 127 {
-                        return Err(std::io::Error::from(std::io::ErrorKind::InvalidData))
-                    }
-                }
-
-                line.extend(buf.into_iter().map(|byte| byte as char));
-
-                Ok(num_bytes)
-            },
-            Encoding::Latin1 => {
-                let mut buf = Vec::new();
-                let num_bytes = reader.read_until('\n' as u8, &mut buf)?;
-
-                line.extend(buf.into_iter().map(|byte| byte as char));
-
-                Ok(num_bytes)
-            }
         }
     }
 }
