@@ -118,6 +118,11 @@ pub fn config_with_intern(env: &mut dyn Env, options: &Options<&Path>) -> Result
                     break;
                 }
 
+                if buf.ends_with("\r\n") {
+                    // convert DOS line endings to Unix
+                    buf.remove(buf.len() - 2);
+                }
+
                 let mut iter = buf.char_indices();
 
                 let Some((index, ch)) = skipws(&mut iter) else {
