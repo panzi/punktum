@@ -136,7 +136,7 @@ fn read_line_latin1(reader: &mut BufReader<File>, line: &mut String) -> std::io:
             return Err(error);
         }
         byte_count += 1;
-        
+
         let ch = buf[0] as char;
 
         line.push(ch);
@@ -170,7 +170,7 @@ fn read_line_utf16(reader: &mut BufReader<File>, line: &mut String, decode: fn([
             }
             return Err(error);
         }
-        byte_count += 2;
+        byte_count += buf.len();
         let hi = decode(buf);
 
         if hi == ('\n' as u16) {
@@ -189,8 +189,7 @@ fn read_line_utf16(reader: &mut BufReader<File>, line: &mut String, decode: fn([
                 }
                 return Err(error);
             }
-
-            byte_count += 2;
+            byte_count += buf.len();
             let lo = decode(buf);
 
             if lo < 0xDC00 || lo > 0xDFFF {
@@ -229,7 +228,7 @@ fn read_line_utf32(reader: &mut BufReader<File>, line: &mut String, decode: fn([
             }
             return Err(error);
         }
-        byte_count += 2;
+        byte_count += buf.len();
         let ch = decode(buf);
         if ch > 0x10FFFF {
             return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
