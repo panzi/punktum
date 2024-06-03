@@ -3,28 +3,28 @@ use std::{collections::HashMap, ffi::{OsStr, OsString}, hash::BuildHasher, sync:
 use crate::{options::{default_path, Encoding, IllegalOption, OptionType}, Error, ErrorKind, Result};
 
 pub trait GetEnv {
-    fn get(&self, key: impl AsRef<OsStr>) -> Option<OsString>;
+    fn get(&self, key: &OsStr) -> Option<OsString>;
 
     #[inline]
     fn get_config_path(&self) -> OsString {
-        self.get("DOTENV_CONFIG_PATH")
+        self.get("DOTENV_CONFIG_PATH".as_ref())
             .filter(|path| !path.is_empty())
             .unwrap_or_else(default_path)
     }
 
     #[inline]
     fn get_override_env(&self) -> Result<bool> {
-        self.get_bool("DOTENV_CONFIG_OVERRIDE", false)
+        self.get_bool("DOTENV_CONFIG_OVERRIDE".as_ref(), false)
     }
 
     #[inline]
     fn get_strict(&self) -> Result<bool> {
-        self.get_bool("DOTENV_CONFIG_STRICT", true)
+        self.get_bool("DOTENV_CONFIG_STRICT".as_ref(), true)
     }
 
     #[inline]
     fn get_debug(&self) -> Result<bool> {
-        self.get_bool("DOTENV_CONFIG_DEBUG", false)
+        self.get_bool("DOTENV_CONFIG_DEBUG".as_ref(), false)
     }
 
     fn get_encoding(&self) -> Result<Encoding> {
@@ -47,7 +47,7 @@ pub trait GetEnv {
         Ok(encoding)
     }
 
-    fn get_bool(&self, key: impl AsRef<OsStr>, default_value: bool) -> Result<bool> {
+    fn get_bool(&self, key: &OsStr, default_value: bool) -> Result<bool> {
         let key = key.as_ref();
         if let Some(value) = self.get(key) {
             if value.eq_ignore_ascii_case("true") || value.eq("1") {
@@ -66,7 +66,7 @@ pub trait GetEnv {
 }
 
 pub trait Env: GetEnv {
-    fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>);
+    fn set(&mut self, key: &OsStr, value: &OsStr);
 }
 
 /// Accessing the environment is unsafe (not thread safe), but the std::env::*
@@ -134,7 +134,7 @@ impl AsMut<SystemEnv> for SystemEnv {
 }
 
 impl GetEnv for SystemEnv {
-    fn get(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
+    fn get(&self, key: &OsStr) -> Option<OsString> {
         let _lock = MUTEX.lock();
 
         std::env::var_os(key)
@@ -142,7 +142,7 @@ impl GetEnv for SystemEnv {
 }
 
 impl Env for SystemEnv {
-    fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
+    fn set(&mut self, key: &OsStr, value: &OsStr) {
         let _lock = MUTEX.lock();
 
         std::env::set_var(key, value);
@@ -151,29 +151,29 @@ impl Env for SystemEnv {
 
 impl<BH: BuildHasher> GetEnv for HashMap<OsString, OsString, BH> {
     #[inline]
-    fn get(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
-        HashMap::get(self, key.as_ref()).map(|value| value.to_os_string())
+    fn get(&self, key: &OsStr) -> Option<OsString> {
+        HashMap::get(self, key).map(|value| value.to_os_string())
     }
 }
 
 impl<BH: BuildHasher> Env for HashMap<OsString, OsString, BH> {
     #[inline]
-    fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
-        self.insert(key.as_ref().to_os_string(), value.as_ref().to_os_string());
+    fn set(&mut self, key: &OsStr, value: &OsStr) {
+        self.insert(key.to_os_string(), value.to_os_string());
     }
 }
 
 impl<BH: BuildHasher> GetEnv for HashMap<String, String, BH> {
     #[inline]
-    fn get(&self, key: impl AsRef<OsStr>) -> Option<OsString> {
-        HashMap::get(self, key.as_ref().to_string_lossy().as_ref()).map(|value| value.into())
+    fn get(&self, key: &OsStr) -> Option<OsString> {
+        HashMap::get(self, key.to_string_lossy().as_ref()).map(|value| value.into())
     }
 }
 
 impl<BH: BuildHasher> Env for HashMap<String, String, BH> {
     #[inline]
-    fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
-        self.insert(key.as_ref().to_string_lossy().into_owned(), value.as_ref().to_string_lossy().into_owned());
+    fn set(&mut self, key: &OsStr, value: &OsStr) {
+        self.insert(key.to_string_lossy().into_owned(), value.to_string_lossy().into_owned());
     }
 }
 

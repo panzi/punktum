@@ -119,7 +119,7 @@ where P: AsRef<Path> + Clone {
     }
 
     #[inline]
-    pub(crate) fn set_var(&self, env: &mut impl Env, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
+    pub(crate) fn set_var(&self, env: &mut dyn Env, key: &OsStr, value: &OsStr) {
         let key = key.as_ref();
         if self.override_env {
             env.set(key, value);

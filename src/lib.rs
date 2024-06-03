@@ -65,11 +65,21 @@ fn skip_word(iter: &mut CharIndices) -> Option<(usize, char)> {
     None
 }
 
+#[inline]
 pub fn config_with<P, E: Env>(env: &mut E, options: &Options<P>) -> Result<()>
 where P: AsRef<Path> + Clone {
-    let path = options.path.as_ref();
-    let file = File::open(path);
-    let path_str = path.to_string_lossy();
+    config_with_intern(env, &Options {
+        override_env: options.override_env,
+        strict: options.strict,
+        debug: options.debug,
+        encoding: options.encoding,
+        path: options.path.as_ref(),
+    })
+}
+
+pub fn config_with_intern(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+    let file = File::open(options.path);
+    let path_str = options.path.to_string_lossy();
 
     match file {
         Err(err) => {
@@ -201,7 +211,7 @@ where P: AsRef<Path> + Clone {
 
                 value.clear();
                 let Some((next_index, next_ch)) = skipws(&mut iter) else {
-                    options.set_var(env, &key, &value);
+                    options.set_var(env, key.as_ref(), value.as_ref());
                     continue;
                 };
                 index = next_index;
@@ -329,7 +339,7 @@ where P: AsRef<Path> + Clone {
                                                             iter = buf.char_indices();
                                                             break;
                                                         } else {
-                                                            options.set_var(env, &key, &value);
+                                                            options.set_var(env, key.as_ref(), value.as_ref());
                                                             return Ok(());
                                                         }
                                                     }
@@ -342,7 +352,7 @@ where P: AsRef<Path> + Clone {
                                                         if options.strict {
                                                             return Err(Error::syntax_error(lineno, 1).into());
                                                         }
-                                                        options.set_var(env, &key, &value);
+                                                        options.set_var(env, key.as_ref(), value.as_ref());
                                                         return Ok(());
                                                     }
 
@@ -382,7 +392,7 @@ where P: AsRef<Path> + Clone {
                                             iter = buf.char_indices();
                                             break;
                                         } else {
-                                            options.set_var(env, &key, &value);
+                                            options.set_var(env, key.as_ref(), value.as_ref());
                                             return Ok(());
                                         }
                                     }
@@ -395,7 +405,7 @@ where P: AsRef<Path> + Clone {
                                         if options.strict {
                                             return Err(Error::syntax_error(lineno, 1).into());
                                         }
-                                        options.set_var(env, &key, &value);
+                                        options.set_var(env, key.as_ref(), value.as_ref());
                                         return Ok(());
                                     }
 
@@ -500,7 +510,7 @@ where P: AsRef<Path> + Clone {
                     }
                 }
 
-                options.set_var(env, &key, &value);
+                options.set_var(env, key.as_ref(), value.as_ref());
             }
         }
     }
