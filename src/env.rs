@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ffi::{OsStr, OsString}, hash::BuildHasher, sync::Mutex};
 
-use crate::{options::{default_path, getenv_bool, Encoding, IllegalOption, OptionType}, Error, ErrorKind, Result};
+use crate::{options::{default_path, Encoding, IllegalOption, OptionType}, Error, ErrorKind, Result};
 
 pub trait GetEnv {
     fn get(&self, key: impl AsRef<OsStr>) -> Option<OsString>;
@@ -13,24 +13,20 @@ pub trait GetEnv {
     }
 
     #[inline]
-    fn get_override_env(&self) -> Result<bool>
-    where Self: Sized {
-        getenv_bool(self, "DOTENV_CONFIG_OVERRIDE", false)
+    fn get_override_env(&self) -> Result<bool> {
+        self.get_bool("DOTENV_CONFIG_OVERRIDE", false)
     }
 
     #[inline]
-    fn get_strict(&self) -> Result<bool>
-    where Self: Sized {
-        getenv_bool(self, "DOTENV_CONFIG_STRICT", true)
+    fn get_strict(&self) -> Result<bool> {
+        self.get_bool("DOTENV_CONFIG_STRICT", true)
     }
 
     #[inline]
-    fn get_debug(&self) -> Result<bool>
-    where Self: Sized {
-        getenv_bool(self, "DOTENV_CONFIG_DEBUG", false)
+    fn get_debug(&self) -> Result<bool> {
+        self.get_bool("DOTENV_CONFIG_DEBUG", false)
     }
 
-    #[inline]
     fn get_encoding(&self) -> Result<Encoding> {
         let encoding_key = OsStr::new("DOTENV_CONFIG_ENCODING");
         let encoding = self.get(encoding_key);
@@ -49,6 +45,23 @@ pub trait GetEnv {
         };
 
         Ok(encoding)
+    }
+
+    fn get_bool(&self, key: impl AsRef<OsStr>, default_value: bool) -> Result<bool> {
+        let key = key.as_ref();
+        if let Some(value) = self.get(key) {
+            if value.eq_ignore_ascii_case("true") || value.eq("1") {
+                Ok(true)
+            } else if value.eq_ignore_ascii_case("false") || value.is_empty() || value.eq("0") {
+                Ok(false)
+            } else {
+                Err(Error::with_cause(
+                    ErrorKind::OptionsParseError,
+                    IllegalOption::new(key.to_owned(), value, OptionType::Bool)))
+            }
+        } else {
+            Ok(default_value)
+        }
     }
 }
 

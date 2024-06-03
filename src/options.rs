@@ -1,6 +1,6 @@
 use std::{ffi::{OsStr, OsString}, fs::File, io::{BufRead, BufReader}, path::Path};
 
-use crate::{env::{GetEnv, SystemEnv}, Env, Error, ErrorKind, Result, DEBUG_PREFIX};
+use crate::{env::{GetEnv, SystemEnv}, Env, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Encoding {
@@ -158,27 +158,6 @@ where P: AsRef<Path> + Clone {
                 Ok(num_bytes)
             }
         }
-    }
-}
-
-#[inline]
-pub(crate) fn getenv_bool<E: GetEnv>(env: &E, key: impl AsRef<OsStr>, default_value: bool) -> Result<bool> {
-    getenv_bool_intern(env, key.as_ref(), default_value)
-}
-
-fn getenv_bool_intern<E: GetEnv>(env: &E, key: &OsStr, default_value: bool) -> Result<bool> {
-    if let Some(value) = env.get(key) {
-        if value.eq_ignore_ascii_case("true") || value.eq("1") {
-            Ok(true)
-        } else if value.eq_ignore_ascii_case("false") || value.is_empty() || value.eq("0") {
-            Ok(false)
-        } else {
-            Err(Error::with_cause(
-                ErrorKind::OptionsParseError,
-                IllegalOption::new(key.to_owned(), value, OptionType::Bool)))
-        }
-    } else {
-        Ok(default_value)
     }
 }
 
