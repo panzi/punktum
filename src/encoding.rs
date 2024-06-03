@@ -230,11 +230,10 @@ fn read_line_utf32(reader: &mut BufReader<File>, line: &mut String, decode: fn([
         }
         byte_count += buf.len();
         let ch = decode(buf);
-        if ch > 0x10FFFF {
-            return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
-        }
 
-        let ch = unsafe { char::from_u32_unchecked(ch as u32) };
+        let Some(ch) = char::from_u32(ch as u32) else {
+            return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
+        };
         line.push(ch);
 
         if ch == '\n' {
