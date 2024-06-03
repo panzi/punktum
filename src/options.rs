@@ -26,12 +26,21 @@ impl TryFrom<&OsStr> for Encoding {
     type Error = IllegalEncoding;
 
     fn try_from(value: &OsStr) -> std::result::Result<Self, Self::Error> {
-        if value.eq_ignore_ascii_case("ascii") {
-            Ok(Encoding::ASCII)
-        } else if value.eq_ignore_ascii_case("latin1") || value.eq_ignore_ascii_case("iso-8859-1") {
-            Ok(Encoding::Latin1)
-        } else if value.eq_ignore_ascii_case("utf-8") || value.eq_ignore_ascii_case("utf8") {
+        if value.eq_ignore_ascii_case("utf-8") ||
+           value.eq_ignore_ascii_case("utf8") ||
+           value.eq_ignore_ascii_case("windows-65001") {
             Ok(Encoding::UTF8)
+        } else if value.eq_ignore_ascii_case("ascii") ||
+                  value.eq_ignore_ascii_case("us-ascii") ||
+                  value.eq_ignore_ascii_case("windows-20127") {
+            Ok(Encoding::ASCII)
+        } else if value.eq_ignore_ascii_case("latin1") ||
+                  value.eq_ignore_ascii_case("iso-8859-1") ||
+                  value.eq_ignore_ascii_case("iso8859-1") ||
+                  value.eq_ignore_ascii_case("iso8859_1") ||
+                  value.eq_ignore_ascii_case("windows-28591") ||
+                  value.eq_ignore_ascii_case("cp819") {
+            Ok(Encoding::Latin1)
         } else {
             Err(IllegalEncoding())
         }
