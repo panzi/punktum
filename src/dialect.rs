@@ -15,6 +15,13 @@ impl Default for Dialect {
     }
 }
 
+impl std::fmt::Display for Dialect {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self, f)
+    }
+}
+
 impl TryFrom<&OsStr> for Dialect {
     type Error = IllegalDialect;
 
@@ -28,12 +35,12 @@ impl TryFrom<&OsStr> for Dialect {
                   value.eq_ignore_ascii_case("jsdotenv") ||
                   value.eq_ignore_ascii_case("javascript-dotenv") ||
                   value.eq_ignore_ascii_case("js-dotenv") {
-            Ok(Dialect::NodeJS)
+            Ok(Dialect::JavaScriptDotenv)
         } else if value.eq_ignore_ascii_case("pythondotenvcli") ||
                   value.eq_ignore_ascii_case("pydotenvcli") ||
                   value.eq_ignore_ascii_case("python-dotenv-cli") ||
                   value.eq_ignore_ascii_case("py-dotenv-cli") {
-            Ok(Dialect::NodeJS)
+            Ok(Dialect::PythonDotenvCLI)
         } else {
             Err(IllegalDialect())
         }

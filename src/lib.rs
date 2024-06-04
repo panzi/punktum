@@ -4,6 +4,7 @@ use std::path::Path;
 pub mod error;
 use dialects::nodejs::config_nodejs;
 use dialects::punktum::config_punktum;
+use dialects::pydotenvcli::config_pydotenvcli;
 pub use error::Error;
 pub use error::ErrorKind;
 
@@ -69,7 +70,7 @@ where P: AsRef<Path> + Clone {
     match options.dialect {
         Dialect::JavaScriptDotenv => unimplemented!(),
         Dialect::NodeJS => config_nodejs(env, &options),
-        Dialect::PythonDotenvCLI => unimplemented!(),
+        Dialect::PythonDotenvCLI => config_pydotenvcli(env, &options),
         Dialect::Punktum => config_punktum(env, &options)
     }
 }
