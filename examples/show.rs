@@ -1,8 +1,6 @@
 use std::{collections::HashMap, ffi::OsString, path::Path};
 
-use punktum::Result;
-
-fn main() -> Result<()> {
+fn main() -> punktum::Result<()> {
     let mut env = HashMap::<OsString, OsString>::new();
     punktum::build()
         .debug(true)
