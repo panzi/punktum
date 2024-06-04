@@ -1,10 +1,10 @@
 use std::{collections::HashMap, ffi::OsString, path::Path};
 
-use dotenv::Result;
+use punktum::Result;
 
 fn main() -> Result<()> {
     let mut env = HashMap::<OsString, OsString>::new();
-    dotenv::build()
+    punktum::build()
         .debug(true)
         .strict(false)
         .path(Path::new(env!("CARGO_MANIFEST_DIR")).join("examples").join("buggy-example.env"))

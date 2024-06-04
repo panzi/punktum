@@ -1,6 +1,6 @@
 use std::{ffi::{OsStr, OsString}, path::Path};
 
-use crate::{encoding::Encoding, env::{GetEnv, SystemEnv}, Env, Result, DEBUG_PREFIX};
+use crate::{encoding::Encoding, env::{GetEnv, SystemEnv}, Dialect, Env, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options<P=OsString>
@@ -16,6 +16,8 @@ where P: AsRef<Path> + Clone {
 
     pub encoding: Encoding,
 
+    pub dialect: Dialect,
+
     pub path: P,
 }
 
@@ -24,14 +26,19 @@ pub fn default_path() -> OsString {
     OsString::from(".env")
 }
 
+pub const DEFAULT_OVERRIDE_ENV: bool = false;
+pub const DEFAULT_STRICT: bool = true;
+pub const DEFAULT_DEBUG: bool = false;
+
 impl Default for Options {
     #[inline]
     fn default() -> Self {
         Self {
-            override_env: false,
-            strict: true,
-            debug: false,
+            override_env: DEFAULT_OVERRIDE_ENV,
+            strict: DEFAULT_STRICT,
+            debug: DEFAULT_DEBUG,
             encoding: Encoding::default(),
+            dialect: Dialect::default(),
             path: default_path(),
         }
     }
@@ -43,9 +50,10 @@ impl Options {
         let strict = env.get_strict()?;
         let debug = env.get_debug()?;
         let encoding = env.get_encoding()?;
+        let dialect = env.get_dialect()?;
         let path = env.get_config_path();
 
-        Ok(Self { override_env, strict, debug, encoding, path })
+        Ok(Self { override_env, strict, debug, encoding, dialect, path })
     }
 
     #[inline]
@@ -56,6 +64,18 @@ impl Options {
 
 impl<P> Options<P>
 where P: AsRef<Path> + Clone {
+    #[inline]
+    pub fn with_path(path: P) -> Self {
+        Self {
+            override_env: DEFAULT_OVERRIDE_ENV,
+            strict: DEFAULT_STRICT,
+            debug: DEFAULT_DEBUG,
+            encoding: Encoding::default(),
+            dialect: Dialect::default(),
+            path,
+        }
+    }
+
     #[inline]
     pub fn config(&self) -> Result<()> {
         crate::config_with(&mut SystemEnv::get(), self)
@@ -85,6 +105,7 @@ where P: AsRef<Path> + Clone {
 pub enum OptionType {
     Bool,
     Encoding,
+    Dialect,
 }
 
 impl std::fmt::Display for OptionType {
@@ -166,6 +187,13 @@ impl Builder {
 impl<P> Builder<P>
 where P: AsRef<Path> + Clone {
     #[inline]
+    pub fn with_path(path: P) -> Self {
+        Self {
+            options: Options::with_path(path)
+        }
+    }
+
+    #[inline]
     pub fn override_env(mut self, value: bool) -> Self {
         self.options.override_env = value;
         self
@@ -189,6 +217,12 @@ where P: AsRef<Path> + Clone {
         self
     }
 
+    #[inline]
+    pub fn dialect(mut self, value: Dialect) -> Self {
+        self.options.dialect = value;
+        self
+    }
+
     pub fn path<NewP>(&self, value: NewP) -> Builder<NewP>
     where NewP: AsRef<Path> + Clone {
         Builder {
@@ -197,6 +231,7 @@ where P: AsRef<Path> + Clone {
                 debug: self.options.debug,
                 strict: self.options.strict,
                 encoding: self.options.encoding,
+                dialect: self.options.dialect,
                 path: value,
             }
         }

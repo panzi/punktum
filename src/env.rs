@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ffi::{OsStr, OsString}, hash::BuildHasher, sync::Mutex};
 
-use crate::{options::{default_path, IllegalOption, OptionType}, Encoding, Error, ErrorKind, Result};
+use crate::{options::{default_path, IllegalOption, OptionType}, Dialect, Encoding, Error, ErrorKind, Result};
 
 pub trait GetEnv {
     fn get(&self, key: &OsStr) -> Option<OsString>;
@@ -47,13 +47,35 @@ pub trait GetEnv {
         Ok(encoding)
     }
 
+    fn get_dialect(&self) -> Result<Dialect> {
+        let dialect_key = OsStr::new("DOTENV_CONFIG_DIALECT");
+        let dialect = self.get(dialect_key);
+        let dialect = if let Some(dialect) = dialect {
+            let Ok(dialect) = Dialect::try_from(dialect.as_os_str()) else {
+                return Err(Error::with_cause(
+                    ErrorKind::OptionsParseError,
+                    IllegalOption::new(
+                        dialect_key.to_owned(),
+                        dialect,
+                        OptionType::Dialect)));
+            };
+            dialect
+        } else {
+            Dialect::default()
+        };
+
+        Ok(dialect)
+    }
+
     fn get_bool(&self, key: &OsStr, default_value: bool) -> Result<bool> {
         let key = key.as_ref();
         if let Some(value) = self.get(key) {
             if value.eq_ignore_ascii_case("true") || value.eq("1") {
                 Ok(true)
-            } else if value.eq_ignore_ascii_case("false") || value.is_empty() || value.eq("0") {
+            } else if value.eq_ignore_ascii_case("false") || value.eq("0") {
                 Ok(false)
+            } else if value.is_empty() {
+                Ok(default_value)
             } else {
                 Err(Error::with_cause(
                     ErrorKind::OptionsParseError,
