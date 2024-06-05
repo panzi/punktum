@@ -3,5 +3,12 @@ name = "punktum"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+authors = ["Mathias Panzenböck"]
 
-[dependencies]
+[lib]
+name = "punktum"
+path = "src/lib.rs"
+
+[[bin]]
+name = "punktum"
+path = "src/main.rs"
