@@ -2,7 +2,7 @@ use std::{fs::File, io::BufReader, path::Path};
 
 use crate::{Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
 
-// Trying to emulate: https://github.com/nodejs/node/blob/v20.x/src/node_dotenv.cc
+// Trying to emulate: https://github.com/nodejs/node/blob/v22.x/src/node_dotenv.cc
 // FIXME: doesn't work!
 pub fn config_nodejs(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
@@ -59,7 +59,7 @@ pub fn config_nodejs(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> 
         if content.is_empty() {
             // In case the last line is a single key without value
             // Example: KEY= (without a newline at the EOF)
-            options.set_var(env, key.as_ref(), "".as_ref());
+            options.set_var(env, key.split('\0').next().unwrap().as_ref(), "".as_ref());
             break;
         }
 
@@ -69,7 +69,12 @@ pub fn config_nodejs(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> 
             if let Some(closing_quote) = content[1..].find('"') {
                 let value = &content[1..closing_quote + 1];
                 let multi_line_value = value.replace("\\n", "\n");
-                options.set_var(env, key.as_ref(), multi_line_value.as_ref());
+                options.set_var(env,
+                    key.split('\0').next().unwrap().as_ref(),
+                    multi_line_value.split('\0').next().unwrap().as_ref());
+                content = &content[closing_quote + 1..];
+                let newline = content.find('\n').unwrap_or(content.len());
+                content = &content[newline..];
                 continue;
             }
         }
@@ -82,10 +87,13 @@ pub fn config_nodejs(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> 
             if let Some(closing_quote) = content[1..].find(front) {
                 // Example: KEY="value"
                 let value = &content[1..closing_quote + 1];
-                options.set_var(env, key.as_ref(), value.as_ref());
+                options.set_var(env,
+                    key.split('\0').next().unwrap().as_ref(),
+                    value.split('\0').next().unwrap().as_ref());
                 // Select the first newline after the closing quotation mark
                 // since there could be newline characters inside the value.
-                let newline = content[closing_quote + 1..].find('\n').unwrap_or(content.len());
+                content = &content[closing_quote + 1..];
+                let newline = content.find('\n').unwrap_or(content.len());
                 content = &content[newline..];
             } else {
                 // Check if newline exist. If it does, take the entire line as the value
@@ -93,7 +101,9 @@ pub fn config_nodejs(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> 
                 // The value pair should be `"value`
                 if let Some(newline) = content.find('\n') {
                     let value = &content[..newline];
-                    options.set_var(env, key.as_ref(), value.as_ref());
+                    options.set_var(env,
+                        key.split('\0').next().unwrap().as_ref(),
+                        value.split('\0').next().unwrap().as_ref());
                     content = &content[newline..];
                 }
             }
@@ -118,7 +128,9 @@ pub fn config_nodejs(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> 
             }
 
             value = value.trim_matches(' ');
-            options.set_var(env, key.as_ref(), value.as_ref());
+            options.set_var(env,
+                key.split('\0').next().unwrap().as_ref(),
+                value.split('\0').next().unwrap().as_ref());
         }
     }
 
