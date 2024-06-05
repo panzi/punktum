@@ -1,7 +1,7 @@
 // trying to emulate: https://github.com/venthur/dotenv-cli/blob/master/dotenv_cli/core.py
 use std::{fs::File, io::BufReader, path::Path};
 
-use crate::{error::SourceLocation, Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
+use crate::{Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
 
 pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
@@ -87,8 +87,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                         eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                     }
                     if options.strict {
-                        let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                        return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                        return Err(Error::syntax_error(lineno, 1));
                     }
                     continue;
                 };
@@ -135,8 +134,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         }
@@ -147,8 +145,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         };
@@ -161,8 +158,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         }
@@ -173,8 +169,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         };
@@ -187,8 +182,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         }
@@ -199,8 +193,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         };
@@ -209,8 +202,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         };
@@ -223,8 +215,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         }
@@ -235,8 +226,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         };
@@ -245,8 +235,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
                             if options.strict {
-                                let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                                return Err(Error::syntax_error(lineno, 1));
                             }
                             continue;
                         };
@@ -258,8 +247,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                             eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                         }
                         if options.strict {
-                            let err: std::io::Error = std::io::ErrorKind::InvalidData.into();
-                            return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(lineno, 1)));
+                            return Err(Error::syntax_error(lineno, 1));
                         }
                         continue;
                     }
@@ -270,7 +258,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
             value = &value[1..value.len() - 1];
         }
 
-        options.set_var(env, key.as_ref(), value.as_ref());
+        options.set_var_check_null(&path_str, lineno, env, key, value)?;
     }
 
     Ok(())

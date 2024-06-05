@@ -1,6 +1,6 @@
 use std::{ffi::{OsStr, OsString}, path::Path};
 
-use crate::{encoding::Encoding, env::{GetEnv, SystemEnv}, Dialect, Env, Result, DEBUG_PREFIX};
+use crate::{encoding::Encoding, env::{GetEnv, SystemEnv}, Dialect, Env, Error, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options<P=OsString>
@@ -98,6 +98,37 @@ where P: AsRef<Path> + Clone {
         } else {
             env.set(key, value);
         }
+    }
+
+    #[inline]
+    pub(crate) fn set_var_check_null(&self, path_str: &str, lineno: usize, env: &mut dyn Env, key: &str, value: &str) -> Result<()> {
+        let key_has_null = key.contains('\0');
+        let value_has_null = value.contains('\0');
+
+        if key_has_null || value_has_null {
+            if self.debug {
+                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid null byte");
+            }
+            if self.strict {
+                return Err(Error::syntax_error(lineno, 1));
+            }
+
+            if key_has_null && value_has_null {
+                let key = key.replace('\0', "");
+                let value = value.replace('\0', "");
+                self.set_var(env, key.as_ref(), value.as_ref());
+            } else if key_has_null {
+                let key = key.replace('\0', "");
+                self.set_var(env, key.as_ref(), value.as_ref());
+            } else {
+                let value = value.replace('\0', "");
+                self.set_var(env, key.as_ref(), value.as_ref());
+            }
+        } else {
+            self.set_var(env, key.as_ref(), value.as_ref());
+        }
+
+        Ok(())
     }
 }
 

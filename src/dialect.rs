@@ -6,6 +6,7 @@ pub enum Dialect {
     NodeJS,
     JavaScriptDotenv,
     PythonDotenvCLI,
+    GoDotenv,
 }
 
 impl Default for Dialect {
@@ -41,6 +42,9 @@ impl TryFrom<&OsStr> for Dialect {
                   value.eq_ignore_ascii_case("python-dotenv-cli") ||
                   value.eq_ignore_ascii_case("py-dotenv-cli") {
             Ok(Dialect::PythonDotenvCLI)
+        } else if value.eq_ignore_ascii_case("godotenv") ||
+                  value.eq_ignore_ascii_case("go-dotenv") {
+            Ok(Dialect::GoDotenv)
         } else {
             Err(IllegalDialect())
         }

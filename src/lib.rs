@@ -2,6 +2,8 @@ use std::str::CharIndices;
 use std::path::Path;
 
 pub mod error;
+use dialects::godotenv::config_godotenv;
+use dialects::jsdotenv::config_jsdotenv;
 use dialects::nodejs::config_nodejs;
 use dialects::punktum::config_punktum;
 use dialects::pydotenvcli::config_pydotenvcli;
@@ -68,10 +70,11 @@ where P: AsRef<Path> + Clone {
     };
 
     match options.dialect {
-        Dialect::JavaScriptDotenv => unimplemented!(),
+        Dialect::Punktum => config_punktum(env, &options),
+        Dialect::JavaScriptDotenv => config_jsdotenv(env, &options),
         Dialect::NodeJS => config_nodejs(env, &options),
         Dialect::PythonDotenvCLI => config_pydotenvcli(env, &options),
-        Dialect::Punktum => config_punktum(env, &options)
+        Dialect::GoDotenv => config_godotenv(env, &options),
     }
 }
 
@@ -94,3 +97,23 @@ pub(crate) fn skip_word(iter: &mut CharIndices) -> Option<(usize, char)> {
 
     None
 }
+
+/*
+pub(crate) trait FindAt {
+    fn find_at(&self, pat: char, pos: usize) -> Option<usize>;
+}
+
+impl FindAt for str {
+    #[inline]
+    fn find_at(&self, pat: char, pos: usize) -> Option<usize> {
+        self[pos..].find(pat).map(|index| index + pos)
+    }
+}
+
+impl FindAt for String {
+    #[inline]
+    fn find_at(&self, pat: char, pos: usize) -> Option<usize> {
+        self[pos..].find(pat).map(|index| index + pos)
+    }
+}
+*/
