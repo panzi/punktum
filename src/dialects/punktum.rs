@@ -291,6 +291,111 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
                                                 index = next_index + 1;
                                                 prev_index = index;
                                             }
+                                            'u' if buf.len() >= next_index + 5 => {
+                                                index = next_index + 1;
+                                                let unicode = &buf[index..index + 4];
+                                                if let Ok(hi) = u32::from_str_radix(unicode, 16) {
+                                                    if hi >= 0xD800 && hi <= 0xDBFF {
+                                                        if buf.len() < next_index + 10 || !buf[index + 4..].starts_with("\\u") {
+                                                            let column = next_index + 1;
+                                                            if options.debug {
+                                                                let escseq = &buf[(index - 2)..index + 4];
+                                                                let line = buf.trim_end_matches('\n');
+                                                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}");
+                                                            }
+                                                            if options.strict {
+                                                                return Err(Error::syntax_error(lineno, column));
+                                                            }
+                                                        } else {
+                                                            let unicode = &buf[index + 6..index + 10];
+                                                            if let Ok(lo) = u32::from_str_radix(unicode, 16) {
+                                                                if lo < 0xDC00 || lo > 0xDFFF {
+                                                                    let column = next_index + 1;
+                                                                    if options.debug {
+                                                                        let escseq = &buf[(index - 2)..index + 10];
+                                                                        let line = buf.trim_end_matches('\n');
+                                                                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}");
+                                                                    }
+                                                                    if options.strict {
+                                                                        return Err(Error::syntax_error(lineno, column));
+                                                                    }
+                                                                } else {
+                                                                    let unicode = (((hi & 0x3ff) as u32) << 10 | (lo & 0x3ff) as u32) + 0x1_0000;
+                                                                    let unicode = unsafe { char::from_u32_unchecked(unicode) };
+                                                                    value.push(unicode);
+                                                                    index += 10;
+                                                                    prev_index = index;
+                                                                }
+                                                            } else {
+                                                                let column = next_index + 1;
+                                                                if options.debug {
+                                                                    let escseq = &buf[(index - 2)..index + 10];
+                                                                    let line = buf.trim_end_matches('\n');
+                                                                    eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}");
+                                                                }
+                                                                if options.strict {
+                                                                    return Err(Error::syntax_error(lineno, column));
+                                                                }
+                                                            }
+                                                        }
+                                                    } else if let Some(unicode) = char::from_u32(hi) {
+                                                        value.push(unicode);
+                                                        index += 6;
+                                                        prev_index = index;
+                                                    } else {
+                                                        let column = next_index + 1;
+                                                        if options.debug {
+                                                            let escseq = &buf[(index - 2)..index + 4];
+                                                            let line = buf.trim_end_matches('\n');
+                                                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}");
+                                                        }
+                                                        if options.strict {
+                                                            return Err(Error::syntax_error(lineno, column));
+                                                        }
+                                                    }
+                                                } else {
+                                                    let column = next_index + 1;
+                                                    if options.debug {
+                                                        let escseq = &buf[(index - 2)..index + 4];
+                                                        let line = buf.trim_end_matches('\n');
+                                                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}");
+                                                    }
+                                                    if options.strict {
+                                                        return Err(Error::syntax_error(lineno, column));
+                                                    }
+                                                }
+                                            }
+                                            'U' if buf.len() >= next_index + 7 => {
+                                                index = next_index + 1;
+                                                let unicode = &buf[index..index + 6];
+                                                if let Ok(unicode) = u32::from_str_radix(unicode, 16) {
+                                                    if let Some(unicode) = char::from_u32(unicode) {
+                                                        value.push(unicode);
+                                                        index += 6;
+                                                        prev_index = index;
+                                                    } else {
+                                                        let column = next_index + 1;
+                                                        if options.debug {
+                                                            let escseq = &buf[(index - 2)..index + 6];
+                                                            let line = buf.trim_end_matches('\n');
+                                                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}");
+                                                        }
+                                                        if options.strict {
+                                                            return Err(Error::syntax_error(lineno, column));
+                                                        }
+                                                    }
+                                                } else {
+                                                    let column = next_index + 1;
+                                                    if options.debug {
+                                                        let escseq = &buf[(index - 2)..index + 6];
+                                                        let line = buf.trim_end_matches('\n');
+                                                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}");
+                                                    }
+                                                    if options.strict {
+                                                        return Err(Error::syntax_error(lineno, column));
+                                                    }
+                                                }
+                                            }
                                             '\0' => {
                                                 index = next_index + 1;
                                                 let column = next_index + 1;
