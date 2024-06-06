@@ -486,8 +486,10 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
                                         return Ok(());
                                     }
                                 }
-                                '$' => {
+                                '$' if quote == '"' => {
+                                    value.push_str(&buf[prev_index..index]);
                                     index = parser.parse_var(&buf, index + 1, &mut value, env)?;
+                                    prev_index = index;
                                 }
                                 '\n' => {
                                     index += 1;
@@ -502,7 +504,7 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
                                             eprintln!("{DEBUG_PREFIX}{}:{}:1: {err}", parser.path, parser.lineno);
                                         }
                                         if options.strict {
-                                            return Err(Error::with_cause(ErrorKind::IOError, err));
+                                            return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(parser.lineno, 1)));
                                         }
                                         if err.kind() == std::io::ErrorKind::InvalidData {
                                             break;
@@ -635,31 +637,31 @@ impl<'c> Parser<'c> {
         if brace {
             index += 1;
         }
-        let end_index = find_word_end(&buf, index);
+        let end_index = find_word_end(&src, index);
 
         if brace && !src[end_index..].starts_with('}') {
             let column = var_start_index + 1;
             if self.debug {
-                let line = buf.trim_end_matches('\n');
+                let line = src.trim_end_matches('\n');
                 eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected '}}': {line}", self.path, self.lineno);
             }
             if self.strict {
                 return Err(Error::syntax_error(self.lineno, column).into());
             }
-            buf.push_str(&src[var_start_index..end_index]);
             index = end_index;
+            buf.push_str(&src[var_start_index..index]);
         } else if end_index == index {
             let column = var_start_index + 1;
             if brace {
                 if self.debug {
-                    let line = buf.trim_end_matches('\n');
+                    let line = src.trim_end_matches('\n');
                     eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: ${{}} found: {line}", self.path, self.lineno);
                 }
 
                 index = end_index + 1;
             } else {
                 if self.debug {
-                    let line = buf.trim_end_matches('\n');
+                    let line = src.trim_end_matches('\n');
                     eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: single $ found: {line}", self.path, self.lineno);
                 }
 
@@ -669,8 +671,10 @@ impl<'c> Parser<'c> {
             if self.strict {
                 return Err(Error::syntax_error(self.lineno, column).into());
             }
+
+            buf.push_str(&src[var_start_index..index]);
         } else {
-            if let Some(val) = env.get(buf[index..end_index].as_ref()) {
+            if let Some(val) = env.get(src[index..end_index].as_ref()) {
                 buf.push_str(val.to_string_lossy().as_ref());
             }
             index = if brace {
