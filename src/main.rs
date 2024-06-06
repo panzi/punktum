@@ -1,21 +1,50 @@
-use std::process::Command;
+use std::{collections::HashMap, process::Command};
 
 #[cfg(target_family = "unix")]
 use std::os::unix::process::CommandExt;
 
 fn exec() -> punktum::Result<()> {
-    punktum::config()?;
-
     let mut args = std::env::args_os();
-    if let Some(program) = args.nth(1) {
+    let mut replace = false;
+    let mut program = None;
+
+    args.next();
+    while let Some(arg) = args.next() {
+        if arg == "--" {
+            program = args.next();
+            break;
+        } else if arg == "-r" || arg == "--replace" {
+            replace = true;
+        } else if arg.to_str().map_or(false, |arg| arg.starts_with('-')) {
+            eprintln!("Error: illegal argument: {arg:?}");
+            return Err(punktum::ErrorKind::IllegalArgument.into());
+        } else {
+            program = Some(arg);
+            break;
+        }
+    }
+
+    if let Some(program) = program {
+        let mut env = if replace {
+            HashMap::new()
+        } else {
+            punktum::system_env().to_hash_map()
+        };
+
+        punktum::build_from_env()?.
+            config_env(&mut env)?;
+
+        let mut cmd = Command::new(&program);
+        let cmd = cmd.args(args).env_clear().envs(env);
+
         #[cfg(target_family = "unix")]
         return Err(punktum::Error::with_cause(
             punktum::ErrorKind::ExecError,
-            Command::new(program).args(args).exec()));
+            cmd.exec()));
 
         #[cfg(not(target_family = "unix"))]
         {
-            let status = Command::new(program).args(args).status()?;
+            let status = cmd.status()?;
             std::process::exit(status.code().unwrap_or(1));
         }
     } else {

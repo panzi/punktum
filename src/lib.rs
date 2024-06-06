@@ -2,6 +2,8 @@
     clippy::manual_range_contains,
 )]
 
+use std::collections::HashMap;
+use std::ffi::OsString;
 use std::path::Path;
 
 pub mod error;
@@ -57,11 +59,19 @@ pub fn system_env() -> SystemEnv {
 #[inline]
 pub fn config() -> Result<()> {
     let options = Options::try_from_env()?;
-    config_with(&mut SystemEnv::get(), &options)
+    config_with(&mut SystemEnv::get(), &SystemEnv::get(), &options)
 }
 
 #[inline]
-pub fn config_with<P, E: Env>(env: &mut E, options: &Options<P>) -> Result<()>
+pub fn config_new() -> Result<HashMap<OsString, OsString>> {
+    let options = Options::try_from_env()?;
+    let mut env = HashMap::new();
+    config_with(&mut env, &SystemEnv::get(), &options)?;
+    Ok(env)
+}
+
+#[inline]
+pub fn config_with<P>(env: &mut impl Env, parent: &impl GetEnv, options: &Options<P>) -> Result<()>
 where P: AsRef<Path> + Clone {
     let options = Options {
         override_env: options.override_env,
@@ -73,10 +83,10 @@ where P: AsRef<Path> + Clone {
     };
 
     match options.dialect {
-        Dialect::Punktum => config_punktum(env, &options),
+        Dialect::Punktum => config_punktum(env, parent, &options),
         Dialect::JavaScriptDotenv => config_jsdotenv(env, &options),
         Dialect::NodeJS => config_nodejs(env, &options),
         Dialect::PythonDotenvCLI => config_pydotenvcli(env, &options),
-        Dialect::GoDotenv => config_godotenv(env, &options),
+        Dialect::GoDotenv => config_godotenv(env, parent, &options),
     }
 }

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fs::File, io::BufReader, path::Path};
 
-use crate::{error::SourceLocation, Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
+use crate::{env::GetEnv, error::SourceLocation, Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
 
 #[inline]
 fn is_word(ch: char) -> bool {
@@ -37,7 +37,7 @@ fn char_at(src: &str, index: usize) -> Option<char> {
     src[index..].chars().next()
 }
 
-pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+pub fn config_punktum(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
     let file = File::open(options.path);
     let path_str = options.path.to_string_lossy();
 
@@ -145,17 +145,19 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
 
                 {
                     let Some(next_ch) = char_at(&buf, index) else {
-                        let column = index + 1;
-                        if options.debug {
-                            let line = buf.trim_end_matches('\n');
-                            eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: unexpected end of line, expected '=': {line}", parser.path, parser.lineno);
-                        }
-                        if options.strict {
-                            return Err(Error::syntax_error(parser.lineno, column));
+                        if let Some(value) = parent.get(key.as_ref()) {
+                            options.set_var(env, key.as_ref(), value.as_ref());
                         }
                         continue;
                     };
                     ch = next_ch;
+                }
+
+                if ch == '#' {
+                    if let Some(value) = parent.get(key.as_ref()) {
+                        options.set_var(env, key.as_ref(), value.as_ref());
+                    }
+                    continue;
                 }
 
                 if ch != '=' {
@@ -168,32 +170,22 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
 
                         key.push_str(&buf[prev_index..index]);
 
-                        if key.is_empty() {
-                            let column = index + 1;
-                            if options.debug {
-                                let line = buf.trim_end_matches('\n');
-                                eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected variable name: {line}", parser.path, parser.lineno);
-                            }
-                            if options.strict {
-                                return Err(Error::syntax_error(parser.lineno, column));
-                            }
-                            continue;
-                        }
-
                         index = skip_ws(&buf, index);
                         {
                             let Some(next_ch) = char_at(&buf, index) else {
-                                let column = index + 1;
-                                if options.debug {
-                                    let line = buf.trim_end_matches('\n');
-                                    eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: unexpected end of line, expected '=': {line}", parser.path, parser.lineno);
-                                }
-                                if options.strict {
-                                    return Err(Error::syntax_error(parser.lineno, column));
+                                if let Some(value) = parent.get(key.as_ref()) {
+                                    options.set_var(env, key.as_ref(), value.as_ref());
                                 }
                                 continue;
                             };
                             ch = next_ch
+                        }
+
+                        if ch == '#' {
+                            if let Some(value) = parent.get(key.as_ref()) {
+                                options.set_var(env, key.as_ref(), value.as_ref());
+                            }
+                            continue;
                         }
 
                         if ch != '=' {

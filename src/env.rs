@@ -96,7 +96,7 @@ pub trait Env: GetEnv {
 /// [`SystemEnv`].
 static MUTEX: Mutex<()> = Mutex::new(());
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SystemEnv();
 
 impl SystemEnv {
@@ -149,7 +149,7 @@ impl AsRef<SystemEnv> for SystemEnv {
 
 impl AsMut<SystemEnv> for SystemEnv {
     #[inline]
-    fn as_mut(&mut self) -> &mut SystemEnv {
+    fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
@@ -167,6 +167,30 @@ impl Env for SystemEnv {
         let _lock = MUTEX.lock();
 
         std::env::set_var(key, value);
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct EmptyEnv();
+
+impl EmptyEnv {
+    #[inline]
+    pub fn get() -> Self {
+        Self ()
+    }
+}
+
+impl AsRef<EmptyEnv> for EmptyEnv {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl GetEnv for EmptyEnv {
+    #[inline]
+    fn get(&self, _key: &OsStr) -> Option<OsString> {
+        None
     }
 }
 

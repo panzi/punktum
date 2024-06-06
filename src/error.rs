@@ -4,6 +4,7 @@ pub enum ErrorKind {
     IOError,
     SyntaxError,
     ExecError,
+    IllegalArgument,
     NotEnoughArguments,
 }
 

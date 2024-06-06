@@ -259,7 +259,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
             value = &value[1..value.len() - 1];
         }
 
-        options.set_var_check_null(&path_str, lineno, env, key, value)?;
+        options.set_var_cut_null(env, key, value);
     }
 
     Ok(())

@@ -1,6 +1,6 @@
-use std::{ffi::{OsStr, OsString}, path::Path};
+use std::{collections::HashMap, ffi::{OsStr, OsString}, path::Path};
 
-use crate::{encoding::Encoding, env::{GetEnv, SystemEnv}, Dialect, Env, Error, Result, DEBUG_PREFIX};
+use crate::{encoding::Encoding, env::{GetEnv, SystemEnv}, Dialect, Env, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options<P=OsString>
@@ -78,12 +78,24 @@ where P: AsRef<Path> + Clone {
 
     #[inline]
     pub fn config(&self) -> Result<()> {
-        crate::config_with(&mut SystemEnv::get(), self)
+        crate::config_with(&mut SystemEnv::get(), &SystemEnv::get(), self)
     }
 
     #[inline]
-    pub fn config_env<E: Env>(&self, env: &mut E) -> Result<()> {
-        crate::config_with(env, self)
+    pub fn config_env(&self, env: &mut impl Env) -> Result<()> {
+        crate::config_with(env, &SystemEnv::get(), self)
+    }
+
+    #[inline]
+    pub fn config_with_parent(&self, env: &mut impl Env, parent: &impl GetEnv) -> Result<()> {
+        crate::config_with(env, parent, self)
+    }
+
+    #[inline]
+    pub fn config_new(&self) -> Result<HashMap<OsString, OsString>> {
+        let mut env = HashMap::new();
+        crate::config_with(&mut env, &SystemEnv::get(), self)?;
+        Ok(env)
     }
 
     #[inline]
@@ -100,34 +112,10 @@ where P: AsRef<Path> + Clone {
     }
 
     #[inline]
-    pub(crate) fn set_var_check_null(&self, path_str: &str, lineno: usize, env: &mut dyn Env, key: &str, value: &str) -> Result<()> {
-        let key_has_null = key.contains('\0');
-        let value_has_null = value.contains('\0');
-
-        if key_has_null || value_has_null {
-            if self.debug {
-                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid null byte");
-            }
-            if self.strict {
-                return Err(Error::syntax_error(lineno, 1));
-            }
-
-            if key_has_null && value_has_null {
-                let key = key.replace('\0', "");
-                let value = value.replace('\0', "");
-                self.set_var(env, key.as_ref(), value.as_ref());
-            } else if key_has_null {
-                let key = key.replace('\0', "");
-                self.set_var(env, key.as_ref(), value.as_ref());
-            } else {
-                let value = value.replace('\0', "");
-                self.set_var(env, key.as_ref(), value.as_ref());
-            }
-        } else {
-            self.set_var(env, key.as_ref(), value.as_ref());
-        }
-
-        Ok(())
+    pub(crate) fn set_var_cut_null(&self, env: &mut dyn Env, key: &str, value: &str) {
+        let key = key.split('\0').next().unwrap();
+        let value = value.split('\0').next().unwrap();
+        self.set_var(env, key.as_ref(), value.as_ref());
     }
 }
 
@@ -289,9 +277,20 @@ where P: AsRef<Path> + Clone {
     }
 
     #[inline]
-    pub fn config_env<E: Env>(self, env: &mut E) -> Result<Self> {
+    pub fn config_env(self, env: &mut impl Env) -> Result<Self> {
         self.options.config_env(env)?;
         Ok(self)
+    }
+
+    #[inline]
+    pub fn config_with_parent(self, env: &mut impl Env, parent: &impl GetEnv) -> Result<Self> {
+        self.options.config_with_parent(env, parent)?;
+        Ok(self)
+    }
+
+    #[inline]
+    pub fn config_new(&self) -> Result<HashMap<OsString, OsString>> {
+        self.options.config_new()
     }
 }
 

@@ -1,9 +1,9 @@
 use std::{borrow::Cow, fs::File, io::BufReader, num::NonZeroU8, path::Path};
 
-use crate::{Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
+use crate::{env::GetEnv, Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
 
 // trying to be compatible to: https://github.com/compose-spec/compose-go/blob/main/dotenv/parser.go
-pub fn config_godotenv(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+pub fn config_godotenv(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
 
     let src = match File::open(options.path) {
@@ -46,21 +46,44 @@ pub fn config_godotenv(env: &mut dyn Env, options: &Options<&Path>) -> Result<()
             if options.debug {
                 eprintln!("{DEBUG_PREFIX}{}:{}: key cannot contain a space", &parser.path, parser.lineno);
             }
-            return Err(Error::syntax_error(parser.lineno, 1));
+            if options.strict {
+                return Err(Error::syntax_error(parser.lineno, 1));
+            }
+            continue;
+        }
+
+        let raw_key = key;
+        let key = key.split('\0').next().unwrap();
+        if key.len() != raw_key.len() {
+            if options.debug {
+                eprintln!("{DEBUG_PREFIX}{}:{}: key contains null byte: {key:?}", &parser.path, parser.lineno);
+            }
+            if options.strict {
+                return Err(Error::syntax_error(parser.lineno, 1));
+            }
         }
 
         if inherited {
-            // not supported. or should it access the systems environment?
-            if options.debug {
-                eprintln!("{DEBUG_PREFIX}{}:{}: variable {key}: inherit not supported", &parser.path, parser.lineno);
+            if let Some(value) = parent.get(key.as_ref()) {
+                options.set_var(env, key.as_ref(), &value);
             }
             cutset = left;
             continue;
         }
 
         let (value, left) = parser.extract_var_value(left, env)?;
+        let raw_value = &value;
+        let value = value.split('\0').next().unwrap();
+        if value.len() != raw_value.len() {
+            if options.debug {
+                eprintln!("{DEBUG_PREFIX}{}:{}: value of key {key:?} contains null byte: {value:?}", &parser.path, parser.lineno);
+            }
+            if options.strict {
+                return Err(Error::syntax_error(parser.lineno, 1));
+            }
+        }
 
-        options.set_var_check_null(&parser.path, parser.lineno, env, key, &value)?;
+        options.set_var(env, key.as_ref(), value.as_ref());
 
         cutset = left;
     }
