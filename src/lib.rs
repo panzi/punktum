@@ -1,4 +1,3 @@
-use std::str::CharIndices;
 use std::path::Path;
 
 pub mod error;
@@ -77,43 +76,3 @@ where P: AsRef<Path> + Clone {
         Dialect::GoDotenv => config_godotenv(env, &options),
     }
 }
-
-pub(crate) fn skipws(iter: &mut CharIndices) -> Option<(usize, char)> {
-    while let Some((index, ch)) = iter.next() {
-        if !ch.is_ascii_whitespace() {
-            return Some((index, ch));
-        }
-    }
-
-    None
-}
-
-pub(crate) fn skip_word(iter: &mut CharIndices) -> Option<(usize, char)> {
-    while let Some((index, ch)) = iter.next() {
-        if !ch.is_ascii_alphanumeric() && ch != '_' {
-            return Some((index, ch));
-        }
-    }
-
-    None
-}
-
-/*
-pub(crate) trait FindAt {
-    fn find_at(&self, pat: char, pos: usize) -> Option<usize>;
-}
-
-impl FindAt for str {
-    #[inline]
-    fn find_at(&self, pat: char, pos: usize) -> Option<usize> {
-        self[pos..].find(pat).map(|index| index + pos)
-    }
-}
-
-impl FindAt for String {
-    #[inline]
-    fn find_at(&self, pat: char, pos: usize) -> Option<usize> {
-        self[pos..].find(pat).map(|index| index + pos)
-    }
-}
-*/
