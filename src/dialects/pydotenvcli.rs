@@ -39,7 +39,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                 lines = &lines[1..];
             }
         } else {
-            line = &lines;
+            line = lines;
             if line.is_empty() {
                 break;
             }
@@ -188,7 +188,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                         }
 
                         let arg = &value[1..5];
-                        let Ok(ch) = u32::from_str_radix(arg, 16) else {
+                        let Ok(ch) = u16::from_str_radix(arg, 16) else {
                             if options.debug {
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
@@ -197,7 +197,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                             }
                             continue;
                         };
-                        let Some(ch) = char::from_u32(ch) else {
+                        let Some(ch) = char::from_u32(ch.into()) else {
                             if options.debug {
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }

@@ -78,51 +78,51 @@ impl<'a> Parser<'a> {
     fn get_statement_start<'b>(&self, mut src: &'b str) -> Option<&'b str> {
         loop {
             let pos = self.index_of_non_space_char(src)?;
-    
+
             src = &src[pos..];
             if !src.starts_with('#') {
                 return Some(src);
             }
-    
+
             let pos = src.find('\n')?;
-    
+
             src = &src[pos..]
         }
     }
-    
+
     #[inline]
     fn index_of_non_space_char(&self, src: &str) -> Option<usize> {
         src.find(|ch: char| !ch.is_whitespace())
     }
-    
+
     fn trim_export<'b>(&self, src: &'b str) -> &'b str {
         if !src.starts_with("export") {
             return src;
         }
-    
+
         let left = &src[6..];
         if !left.starts_with(is_space) {
             return src;
         }
-    
+
         let Some(index) = left.find(|ch: char| !is_space(ch)) else {
             return "";
         };
-    
-        return &left[index..];
+
+        &left[index..]
     }
-    
+
     fn locate_key_name<'b>(&self, mut src: &'b str) -> Result<(&'b str, &'b str, bool)> {
         let mut key = "";
         let mut inherited = false;
         src = self.trim_export(src);
-    
+
         let mut offset = 0;
         for (index, rune) in src.char_indices() {
             if is_space(rune) {
                 continue;
             }
-    
+
             match rune {
                 '='|':'|'\n' => {
                     key = &src[..index];
@@ -160,7 +160,7 @@ impl<'a> Parser<'a> {
         key = key.trim_end();
         let cutset = src[offset..].trim_start_matches(is_space);
 
-        return Ok((key, cutset, inherited));
+        Ok((key, cutset, inherited))
     }
 
     fn extract_var_value<'b>(&mut self, src: &'b str, env: &mut dyn Env) -> Result<(String, &'b str)> {
@@ -219,7 +219,7 @@ impl<'a> Parser<'a> {
             );
         }
 
-        return Err(Error::syntax_error(self.lineno, 1));
+        Err(Error::syntax_error(self.lineno, 1))
     }
 
     // see: https://github.com/compose-spec/compose-go/blob/e1496cd905b20b799fa3acecefed8056338961a2/template/template.go
@@ -286,7 +286,7 @@ impl<'a> Parser<'a> {
                             return Err(Error::syntax_error(self.lineno, 1));
                         }
                         src = &src[2..];
-                    } else if src.starts_with("?") {
+                    } else if src.starts_with('?') {
                         // required error when unset
                         if let Some(value) = value {
                             buf.push_str(value.to_string_lossy().as_ref());
@@ -313,7 +313,7 @@ impl<'a> Parser<'a> {
                         } else {
                             buf.push_str(default);
                         }
-                    } else if src.starts_with("-") {
+                    } else if src.starts_with('-') {
                         // default when unset
                         let index = src.find('}').unwrap_or(src.len());
                         let default = &src[2..index];
@@ -333,7 +333,7 @@ impl<'a> Parser<'a> {
                                 buf.push_str(default);
                             }
                         }
-                    } else if src.starts_with("+") {
+                    } else if src.starts_with('+') {
                         // default when set
                         let index = src.find('}').unwrap_or(src.len());
                         let default = &src[2..index];
@@ -341,7 +341,7 @@ impl<'a> Parser<'a> {
                         if value.is_some() {
                             buf.push_str(default);
                         }
-                    } else if src.starts_with("}") {
+                    } else if src.starts_with('}') {
                         src = &src[1..];
                         if let Some(value) = value {
                             buf.push_str(value.to_string_lossy().as_ref());
@@ -447,24 +447,22 @@ fn expand_escapes(mut src: &str) -> String {
 }
 
 fn oct_head(src: &str) -> Option<u8> {
-    let Some(ch) = src.chars().next() else {
-        return None;
-    };
+    let ch = src.chars().next()?;
 
     if ch < '0' || ch > '7' {
         return None;
     }
 
-    Some(ch as u8 - '0' as u8)
+    Some(ch as u8 - b'0')
 }
 
 fn has_quote_prefix(src: &str) -> Option<NonZeroU8> {
     if src.starts_with('"') {
-        return NonZeroU8::new('"' as u8);
+        return NonZeroU8::new(b'"');
     } else if src.starts_with('\'') {
-        return NonZeroU8::new('\'' as u8);
+        return NonZeroU8::new(b'\'');
     }
-    return None;
+    None
 }
 
 #[inline]

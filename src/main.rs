@@ -19,7 +19,7 @@ fn exec() -> punktum::Result<()> {
             std::process::exit(status.code().unwrap_or(1));
         }
     } else {
-        return Err(punktum::ErrorKind::NotEnoughArguments.into());
+        Err(punktum::ErrorKind::NotEnoughArguments.into())
     }
 }
 

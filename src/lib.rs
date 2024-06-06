@@ -1,3 +1,7 @@
+#![allow(
+    clippy::manual_range_contains,
+)]
+
 use std::path::Path;
 
 pub mod error;

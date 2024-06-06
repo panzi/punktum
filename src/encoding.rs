@@ -31,7 +31,7 @@ impl Encoding {
             Encoding::ASCII => {
                 let mut bytes = Vec::new();
                 let byte_count = reader.read_to_end(&mut bytes)?;
-                if bytes.iter().cloned().find(|byte| *byte > 127).is_some() {
+                if bytes.iter().cloned().any(|byte| byte > 127) {
                     return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
                 }
 
@@ -228,7 +228,7 @@ fn read_line_utf16(reader: &mut BufReader<File>, line: &mut String, decode: fn([
             }
 
             let ch = (((hi & 0x3ff) as u32) << 10 | (lo & 0x3ff) as u32) + 0x1_0000;
-            line.push(unsafe { char::from_u32_unchecked(ch as u32) });
+            line.push(unsafe { char::from_u32_unchecked(ch) });
         } else {
             line.push(unsafe { char::from_u32_unchecked(hi as u32) });
         }
@@ -262,7 +262,7 @@ fn read_line_utf32(reader: &mut BufReader<File>, line: &mut String, decode: fn([
         byte_count += buf.len();
         let ch = decode(buf);
 
-        let Some(ch) = char::from_u32(ch as u32) else {
+        let Some(ch) = char::from_u32(ch) else {
             return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
         };
         line.push(ch);
@@ -309,13 +309,13 @@ fn read_utf16(reader: &mut BufReader<File>, out: &mut String, decode: fn([u8; 2]
             }
 
             let ch = (((hi & 0x3ff) as u32) << 10 | (lo & 0x3ff) as u32) + 0x1_0000;
-            out.push(unsafe { char::from_u32_unchecked(ch as u32) });
+            out.push(unsafe { char::from_u32_unchecked(ch) });
         } else {
             out.push(unsafe { char::from_u32_unchecked(hi as u32) });
         }
     }
 
-    return Ok(byte_count);
+    Ok(byte_count)
 }
 
 fn read_utf32(reader: &mut BufReader<File>, line: &mut String, decode: fn([u8; 4]) -> u32) -> std::io::Result<usize> {
@@ -333,7 +333,7 @@ fn read_utf32(reader: &mut BufReader<File>, line: &mut String, decode: fn([u8; 4
         byte_count += buf.len();
         let ch = decode(buf);
 
-        let Some(ch) = char::from_u32(ch as u32) else {
+        let Some(ch) = char::from_u32(ch) else {
             return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
         };
         line.push(ch);

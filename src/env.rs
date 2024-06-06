@@ -68,7 +68,6 @@ pub trait GetEnv {
     }
 
     fn get_bool(&self, key: &OsStr, default_value: bool) -> Result<bool> {
-        let key = key.as_ref();
         if let Some(value) = self.get(key) {
             if value.eq_ignore_ascii_case("true") || value.eq("1") {
                 Ok(true)

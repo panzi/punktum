@@ -312,7 +312,7 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
                                             'u' if buf.len() >= index + 5 => {
                                                 index += 1;
                                                 let unicode = &buf[index..index + 4];
-                                                if let Ok(hi) = u32::from_str_radix(unicode, 16) {
+                                                if let Ok(hi) = u16::from_str_radix(unicode, 16) {
                                                     if hi >= 0xD800 && hi <= 0xDBFF {
                                                         if buf.len() < index + 10 || !buf[index + 4..].starts_with("\\u") {
                                                             let column = index - 1;
@@ -326,7 +326,7 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
                                                             }
                                                         } else {
                                                             let unicode = &buf[index + 6..index + 10];
-                                                            if let Ok(lo) = u32::from_str_radix(unicode, 16) {
+                                                            if let Ok(lo) = u16::from_str_radix(unicode, 16) {
                                                                 if lo < 0xDC00 || lo > 0xDFFF {
                                                                     let column = index + 3;
                                                                     if options.debug {
@@ -356,7 +356,7 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
                                                                 }
                                                             }
                                                         }
-                                                    } else if let Some(unicode) = char::from_u32(hi) {
+                                                    } else if let Some(unicode) = char::from_u32(hi.into()) {
                                                         value.push(unicode);
                                                         index += 4;
                                                         prev_index = index;
@@ -384,7 +384,7 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
                                                 }
                                             }
                                             'U' if buf.len() >= index + 7 => {
-                                                index = index + 1;
+                                                index += 1;
                                                 let unicode = &buf[index..index + 6];
                                                 if let Ok(unicode) = u32::from_str_radix(unicode, 16) {
                                                     if let Some(unicode) = char::from_u32(unicode) {
@@ -453,7 +453,7 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
                                                         eprintln!("{DEBUG_PREFIX}{}:{}:1: syntax error: unterminated string literal: {line}", parser.path, parser.lineno);
                                                     }
                                                     if options.strict {
-                                                        return Err(Error::syntax_error(parser.lineno, 1).into());
+                                                        return Err(Error::syntax_error(parser.lineno, 1));
                                                     }
                                                     options.set_var(env, key.as_ref(), value.as_ref());
                                                     return Ok(());
@@ -519,7 +519,7 @@ pub fn config_punktum(env: &mut dyn Env, options: &Options<&Path>) -> Result<()>
                                             eprintln!("{DEBUG_PREFIX}{}:{}:1: syntax error: unexpected end of file in string literal", parser.path, parser.lineno);
                                         }
                                         if options.strict {
-                                            return Err(Error::syntax_error(parser.lineno, 1).into());
+                                            return Err(Error::syntax_error(parser.lineno, 1));
                                         }
                                         options.set_var(env, key.as_ref(), value.as_ref());
                                         return Ok(());
@@ -637,7 +637,7 @@ impl<'c> Parser<'c> {
         if brace {
             index += 1;
         }
-        let end_index = find_word_end(&src, index);
+        let end_index = find_word_end(src, index);
 
         if brace && !src[end_index..].starts_with('}') {
             let column = var_start_index + 1;
@@ -646,7 +646,7 @@ impl<'c> Parser<'c> {
                 eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected '}}': {line}", self.path, self.lineno);
             }
             if self.strict {
-                return Err(Error::syntax_error(self.lineno, column).into());
+                return Err(Error::syntax_error(self.lineno, column));
             }
             index = end_index;
             buf.push_str(&src[var_start_index..index]);
@@ -669,7 +669,7 @@ impl<'c> Parser<'c> {
             }
 
             if self.strict {
-                return Err(Error::syntax_error(self.lineno, column).into());
+                return Err(Error::syntax_error(self.lineno, column));
             }
 
             buf.push_str(&src[var_start_index..index]);
