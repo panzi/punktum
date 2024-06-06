@@ -249,6 +249,7 @@ pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result
                         if options.strict {
                             return Err(Error::syntax_error(lineno, 1));
                         }
+                        value_buf.push('\\');
                         continue;
                     }
                 }
