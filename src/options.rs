@@ -283,13 +283,15 @@ where P: AsRef<Path> + Clone {
     }
 
     #[inline]
-    pub fn config(&self) -> Result<()> {
-        self.options.config()
+    pub fn config(self) -> Result<Self> {
+        self.options.config()?;
+        Ok(self)
     }
 
     #[inline]
-    pub fn config_env<E: Env>(&self, env: &mut E) -> Result<()> {
-        self.options.config_env(env)
+    pub fn config_env<E: Env>(self, env: &mut E) -> Result<Self> {
+        self.options.config_env(env)?;
+        Ok(self)
     }
 }
 
