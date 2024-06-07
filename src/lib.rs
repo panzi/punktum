@@ -2,7 +2,9 @@
     clippy::manual_range_contains,
 )]
 
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::path::Path;
 
@@ -12,6 +14,7 @@ use dialects::jsdotenv::config_jsdotenv;
 use dialects::nodejs::config_nodejs;
 use dialects::punktum::config_punktum;
 use dialects::pydotenvcli::config_pydotenvcli;
+use env::SYSTEM_ENV;
 pub use error::Error;
 pub use error::ErrorKind;
 
@@ -42,31 +45,31 @@ pub fn build() -> Builder {
 }
 
 #[inline]
-pub fn build_from<E: GetEnv>(env: &E) -> Result<Builder> {
+pub fn build_from(env: &impl GetEnv) -> Result<Builder<Cow<'_, OsStr>>> {
     Builder::try_from(env)
 }
 
 #[inline]
-pub fn build_from_env() -> Result<Builder> {
+pub fn build_from_env() -> Result<Builder<Cow<'static, OsStr>>> {
     Builder::try_from_env()
 }
 
 #[inline]
 pub fn system_env() -> SystemEnv {
-    SystemEnv::get()
+    SystemEnv::new()
 }
 
 #[inline]
 pub fn config() -> Result<()> {
     let options = Options::try_from_env()?;
-    config_with(&mut SystemEnv::get(), &SystemEnv::get(), &options)
+    config_with(&mut SystemEnv(), &SYSTEM_ENV, &options)
 }
 
 #[inline]
 pub fn config_new() -> Result<HashMap<OsString, OsString>> {
     let options = Options::try_from_env()?;
     let mut env = HashMap::new();
-    config_with(&mut env, &SystemEnv::get(), &options)?;
+    config_with(&mut env, &SYSTEM_ENV, &options)?;
     Ok(env)
 }
 

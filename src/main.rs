@@ -34,7 +34,7 @@ fn exec() -> punktum::Result<()> {
         punktum::build_from_env()?.
             config_env(&mut env)?;
 
-        let mut cmd = Command::new(&program);
+        let mut cmd = Command::new(program);
         let cmd = cmd.args(args).env_clear().envs(env);
 
         #[cfg(target_family = "unix")]

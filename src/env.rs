@@ -1,15 +1,17 @@
-use std::{collections::HashMap, ffi::{OsStr, OsString}, hash::BuildHasher, sync::Mutex};
+use std::{borrow::Cow, collections::HashMap, ffi::{OsStr, OsString}, hash::BuildHasher, sync::Mutex};
 
-use crate::{options::{default_path, IllegalOption, OptionType}, Dialect, Encoding, Error, ErrorKind, Result};
+use crate::{options::{DEFAULT_PATH, IllegalOption, OptionType}, Dialect, Encoding, Error, ErrorKind, Result};
 
 pub trait GetEnv {
-    fn get(&self, key: &OsStr) -> Option<OsString>;
+    fn get<'a>(&'a self, key: &OsStr) -> Option<Cow<'a, OsStr>>;
 
     #[inline]
-    fn get_config_path(&self) -> OsString {
+    fn get_config_path(&self) -> Cow<'_, OsStr> {
         self.get("DOTENV_CONFIG_PATH".as_ref())
             .filter(|path| !path.is_empty())
-            .unwrap_or_else(default_path)
+            .unwrap_or_else(|| {
+                Cow::from(OsStr::new(DEFAULT_PATH))
+            })
     }
 
     #[inline]
@@ -31,12 +33,12 @@ pub trait GetEnv {
         let encoding_key = OsStr::new("DOTENV_CONFIG_ENCODING");
         let encoding = self.get(encoding_key);
         let encoding = if let Some(encoding) = encoding {
-            let Ok(encoding) = Encoding::try_from(encoding.as_os_str()) else {
+            let Ok(encoding) = Encoding::try_from(encoding.as_ref()) else {
                 return Err(Error::with_cause(
                     ErrorKind::OptionsParseError,
                     IllegalOption::new(
                         encoding_key.to_owned(),
-                        encoding,
+                        encoding.into(),
                         OptionType::Encoding)));
             };
             encoding
@@ -51,12 +53,12 @@ pub trait GetEnv {
         let dialect_key = OsStr::new("DOTENV_CONFIG_DIALECT");
         let dialect = self.get(dialect_key);
         let dialect = if let Some(dialect) = dialect {
-            let Ok(dialect) = Dialect::try_from(dialect.as_os_str()) else {
+            let Ok(dialect) = Dialect::try_from(dialect.as_ref()) else {
                 return Err(Error::with_cause(
                     ErrorKind::OptionsParseError,
                     IllegalOption::new(
                         dialect_key.to_owned(),
-                        dialect,
+                        dialect.into(),
                         OptionType::Dialect)));
             };
             dialect
@@ -69,16 +71,20 @@ pub trait GetEnv {
 
     fn get_bool(&self, key: &OsStr, default_value: bool) -> Result<bool> {
         if let Some(value) = self.get(key) {
-            if value.eq_ignore_ascii_case("true") || value.eq("1") {
+            let value: &OsStr = &value;
+            if value.eq_ignore_ascii_case("true") || value == "1" {
                 Ok(true)
-            } else if value.eq_ignore_ascii_case("false") || value.eq("0") {
+            } else if value.eq_ignore_ascii_case("false") || value == "0" {
                 Ok(false)
             } else if value.is_empty() {
                 Ok(default_value)
             } else {
                 Err(Error::with_cause(
                     ErrorKind::OptionsParseError,
-                    IllegalOption::new(key.to_owned(), value, OptionType::Bool)))
+                    IllegalOption::new(
+                        key.to_owned(),
+                        value.into(),
+                        OptionType::Bool)))
             }
         } else {
             Ok(default_value)
@@ -99,10 +105,19 @@ static MUTEX: Mutex<()> = Mutex::new(());
 #[derive(Debug, Clone, Copy)]
 pub struct SystemEnv();
 
+pub const SYSTEM_ENV: SystemEnv = SystemEnv();
+
+impl Default for SystemEnv {
+    #[inline]
+    fn default() -> Self {
+        Self()
+    }
+}
+
 impl SystemEnv {
     #[inline]
-    pub fn get() -> Self {
-        Self ()
+    pub fn new() -> Self {
+        Self()
     }
 
     pub fn hash_map() -> HashMap<OsString, OsString> {
@@ -155,10 +170,10 @@ impl AsMut<SystemEnv> for SystemEnv {
 }
 
 impl GetEnv for SystemEnv {
-    fn get(&self, key: &OsStr) -> Option<OsString> {
+    fn get<'a>(&'a self, key: &OsStr) -> Option<Cow<'a, OsStr>> {
         let _lock = MUTEX.lock();
 
-        std::env::var_os(key)
+        std::env::var_os(key).map(Cow::from)
     }
 }
 
@@ -173,10 +188,17 @@ impl Env for SystemEnv {
 #[derive(Debug, Clone, Copy)]
 pub struct EmptyEnv();
 
+impl Default for EmptyEnv {
+    #[inline]
+    fn default() -> Self {
+        Self()
+    }
+}
+
 impl EmptyEnv {
     #[inline]
-    pub fn get() -> Self {
-        Self ()
+    pub fn new() -> Self {
+        Self()
     }
 }
 
@@ -189,15 +211,15 @@ impl AsRef<EmptyEnv> for EmptyEnv {
 
 impl GetEnv for EmptyEnv {
     #[inline]
-    fn get(&self, _key: &OsStr) -> Option<OsString> {
+    fn get<'a>(&'a self, _key: &OsStr) -> Option<Cow<'a, OsStr>> {
         None
     }
 }
 
 impl<BH: BuildHasher> GetEnv for HashMap<OsString, OsString, BH> {
     #[inline]
-    fn get(&self, key: &OsStr) -> Option<OsString> {
-        HashMap::get(self, key).map(|value| value.to_os_string())
+    fn get<'a>(&'a self, key: &OsStr) -> Option<Cow<'a, OsStr>> {
+        HashMap::get(self, key).map(Cow::from)
     }
 }
 
@@ -210,8 +232,11 @@ impl<BH: BuildHasher> Env for HashMap<OsString, OsString, BH> {
 
 impl<BH: BuildHasher> GetEnv for HashMap<String, String, BH> {
     #[inline]
-    fn get(&self, key: &OsStr) -> Option<OsString> {
-        HashMap::get(self, key.to_string_lossy().as_ref()).map(|value| value.into())
+    fn get<'a>(&'a self, key: &OsStr) -> Option<Cow<'a, OsStr>> {
+        HashMap::get(self, key.to_string_lossy().as_ref()).map(|value| {
+            let value: &OsStr = value.as_ref();
+            Cow::from(value)
+        })
     }
 }
 

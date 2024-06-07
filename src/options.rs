@@ -1,9 +1,9 @@
-use std::{collections::HashMap, ffi::{OsStr, OsString}, path::Path};
+use std::{borrow::Cow, collections::HashMap, ffi::{OsStr, OsString}, path::Path};
 
-use crate::{encoding::Encoding, env::{GetEnv, SystemEnv}, Dialect, Env, Result, DEBUG_PREFIX};
+use crate::{encoding::Encoding, env::{GetEnv, SystemEnv, SYSTEM_ENV}, Dialect, Env, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Options<P=OsString>
+pub struct Options<P=&'static str>
 where P: AsRef<Path> + Clone {
     /// Override existing environment variables.
     pub override_env: bool,
@@ -21,11 +21,7 @@ where P: AsRef<Path> + Clone {
     pub path: P,
 }
 
-#[inline]
-pub fn default_path() -> OsString {
-    OsString::from(".env")
-}
-
+pub const DEFAULT_PATH: &str = ".env";
 pub const DEFAULT_OVERRIDE_ENV: bool = false;
 pub const DEFAULT_STRICT: bool = true;
 pub const DEFAULT_DEBUG: bool = false;
@@ -39,13 +35,13 @@ impl Default for Options {
             debug: DEFAULT_DEBUG,
             encoding: Encoding::default(),
             dialect: Dialect::default(),
-            path: default_path(),
+            path: DEFAULT_PATH,
         }
     }
 }
 
-impl Options {
-    pub fn try_from<E: GetEnv>(env: &E) -> Result<Self> {
+impl<'a> Options<Cow<'a, OsStr>> {
+    pub fn try_from(env: &'a impl GetEnv) -> Result<Self> {
         let override_env = env.get_override_env()?;
         let strict = env.get_strict()?;
         let debug = env.get_debug()?;
@@ -58,7 +54,7 @@ impl Options {
 
     #[inline]
     pub fn try_from_env() -> Result<Self> {
-        Self::try_from(&SystemEnv::get())
+        Self::try_from(&SYSTEM_ENV)
     }
 }
 
@@ -78,12 +74,12 @@ where P: AsRef<Path> + Clone {
 
     #[inline]
     pub fn config(&self) -> Result<()> {
-        crate::config_with(&mut SystemEnv::get(), &SystemEnv::get(), self)
+        crate::config_with(&mut SystemEnv(), &SYSTEM_ENV, self)
     }
 
     #[inline]
     pub fn config_env(&self, env: &mut impl Env) -> Result<()> {
-        crate::config_with(env, &SystemEnv::get(), self)
+        crate::config_with(env, &SYSTEM_ENV, self)
     }
 
     #[inline]
@@ -92,9 +88,16 @@ where P: AsRef<Path> + Clone {
     }
 
     #[inline]
+    pub fn config_new_with_parent(&self, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
+        let mut env = HashMap::new();
+        crate::config_with(&mut env, parent, self)?;
+        Ok(env)
+    }
+
+    #[inline]
     pub fn config_new(&self) -> Result<HashMap<OsString, OsString>> {
         let mut env = HashMap::new();
-        crate::config_with(&mut env, &SystemEnv::get(), self)?;
+        crate::config_with(&mut env, &SYSTEM_ENV, self)?;
         Ok(env)
     }
 
@@ -171,7 +174,7 @@ impl std::fmt::Display for IllegalOption {
 impl std::error::Error for IllegalOption {}
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Builder<P=OsString>
+pub struct Builder<P=&'static str>
 where P: AsRef<Path> + Clone {
     options: Options<P>,
 }
@@ -188,9 +191,11 @@ impl Builder {
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl<'a> Builder<Cow<'a, OsStr>> {
     #[inline]
-    pub fn try_from<E: GetEnv>(env: &E) -> Result<Self> {
+    pub fn try_from(env: &'a impl GetEnv) -> Result<Self> {
         let options = Options::try_from(env)?;
         Ok(Self { options })
     }
@@ -286,6 +291,11 @@ where P: AsRef<Path> + Clone {
     pub fn config_with_parent(self, env: &mut impl Env, parent: &impl GetEnv) -> Result<Self> {
         self.options.config_with_parent(env, parent)?;
         Ok(self)
+    }
+
+    #[inline]
+    pub fn config_new_with_parent(&self, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
+        self.options.config_new_with_parent(parent)
     }
 
     #[inline]
