@@ -100,6 +100,7 @@ pub trait Env: GetEnv {
 /// functions aren't marked as unsafe. This mutex doesn't really fix the issue
 /// since it only applies to code accessing the environment through
 /// [`SystemEnv`].
+#[cfg(not(target_family = "windows"))]
 static MUTEX: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Clone, Copy)]
@@ -122,6 +123,7 @@ impl SystemEnv {
 
     pub fn hash_map() -> HashMap<OsString, OsString> {
         let mut vars = HashMap::new();
+        #[cfg(not(target_family = "windows"))]
         let _lock = MUTEX.lock();
 
         for (key, value) in std::env::vars_os() {
@@ -133,6 +135,7 @@ impl SystemEnv {
 
     pub fn hash_map_lossy() -> HashMap<String, String> {
         let mut vars = HashMap::new();
+        #[cfg(not(target_family = "windows"))]
         let _lock = MUTEX.lock();
 
         for (key, value) in std::env::vars_os() {
@@ -171,6 +174,7 @@ impl AsMut<SystemEnv> for SystemEnv {
 
 impl GetEnv for SystemEnv {
     fn get<'a>(&'a self, key: &OsStr) -> Option<Cow<'a, OsStr>> {
+        #[cfg(not(target_family = "windows"))]
         let _lock = MUTEX.lock();
 
         std::env::var_os(key).map(Cow::from)
@@ -179,6 +183,7 @@ impl GetEnv for SystemEnv {
 
 impl Env for SystemEnv {
     fn set(&mut self, key: &OsStr, value: &OsStr) {
+        #[cfg(not(target_family = "windows"))]
         let _lock = MUTEX.lock();
 
         std::env::set_var(key, value);
