@@ -3,6 +3,7 @@ pub enum ErrorKind {
     OptionsParseError,
     IOError,
     SyntaxError,
+    SubstitutionError,
     ExecError,
     IllegalArgument,
     NotEnoughArguments,
@@ -80,6 +81,15 @@ impl Error {
         Self {
             cause: None,
             kind: ErrorKind::SyntaxError,
+            location: Some(SourceLocation::new(lineno, column)),
+        }
+    }
+
+    #[inline]
+    pub fn substitution_error(lineno: usize, column: usize) -> Self {
+        Self {
+            cause: None,
+            kind: ErrorKind::SubstitutionError,
             location: Some(SourceLocation::new(lineno, column)),
         }
     }

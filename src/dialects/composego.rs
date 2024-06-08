@@ -298,43 +298,77 @@ impl<'a> Parser<'a> {
 
                     if src.starts_with(":?") {
                         // required error when empty or unset
+                        src = &src[2..];
+                        let index = src.find('}').unwrap_or(src.len());
+                        let message = &src[..index];
+                        src = &src[index..];
+                        if !src.is_empty() {
+                            src = &src[1..];
+                        }
                         if let Some(value) = value {
                             if value.is_empty() {
                                 if self.debug {
-                                    eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} may not be empty",
-                                        &self.path, self.lineno, name
-                                    );
+                                    if message.is_empty() {
+                                        eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} may not be empty",
+                                            &self.path, self.lineno, name
+                                        );
+                                    } else {
+                                        eprintln!("{DEBUG_PREFIX}{}:{}: {}",
+                                            &self.path, self.lineno, message
+                                        );
+                                    }
                                 }
                                 return Err(Error::syntax_error(self.lineno, 1));
                             }
                             buf.push_str(value.to_string_lossy().as_ref());
                         } else {
                             if self.debug {
-                                eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} may not be unset",
-                                    &self.path, self.lineno, name
-                                );
+                                if message.is_empty() {
+                                    eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} may not be unset",
+                                        &self.path, self.lineno, name
+                                    );
+                                } else {
+                                    eprintln!("{DEBUG_PREFIX}{}:{}: {}",
+                                        &self.path, self.lineno, message
+                                    );
+                                }
                             }
                             return Err(Error::syntax_error(self.lineno, 1));
                         }
-                        src = &src[2..];
                     } else if src.starts_with('?') {
                         // required error when unset
+                        src = &src[1..];
+                        let index = src.find('}').unwrap_or(src.len());
+                        let message = &src[..index];
+                        src = &src[index..];
+                        if !src.is_empty() {
+                            src = &src[1..];
+                        }
                         if let Some(value) = value {
                             buf.push_str(value.to_string_lossy().as_ref());
                         } else {
                             if self.debug {
-                                eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} may not be unset",
-                                    &self.path, self.lineno, name
-                                );
+                                if message.is_empty() {
+                                    eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} may not be unset",
+                                        &self.path, self.lineno, name
+                                    );
+                                } else {
+                                    eprintln!("{DEBUG_PREFIX}{}:{}: {}",
+                                        &self.path, self.lineno, message
+                                    );
+                                }
                             }
                             return Err(Error::syntax_error(self.lineno, 1));
                         }
-                        src = &src[2..];
                     } else if src.starts_with(":-") {
                         // default when empty or unset
+                        src = &src[2..];
                         let index = src.find('}').unwrap_or(src.len());
-                        let default = &src[2..index];
-                        src = &src[index + 1..];
+                        let default = &src[..index];
+                        src = &src[index..];
+                        if !src.is_empty() {
+                            src = &src[1..];
+                        }
                         if let Some(value) = value {
                             if value.is_empty() {
                                 buf.push_str(default);
@@ -346,9 +380,13 @@ impl<'a> Parser<'a> {
                         }
                     } else if src.starts_with('-') {
                         // default when unset
+                        src = &src[1..];
                         let index = src.find('}').unwrap_or(src.len());
-                        let default = &src[2..index];
-                        src = &src[index + 1..];
+                        let default = &src[..index];
+                        src = &src[index..];
+                        if !src.is_empty() {
+                            src = &src[1..];
+                        }
                         if let Some(value) = value {
                             buf.push_str(value.to_string_lossy().as_ref());
                         } else {
@@ -356,9 +394,13 @@ impl<'a> Parser<'a> {
                         }
                     } else if src.starts_with(":+") {
                         // default when not empty
+                        src = &src[2..];
                         let index = src.find('}').unwrap_or(src.len());
-                        let default = &src[2..index];
-                        src = &src[index + 1..];
+                        let default = &src[..index];
+                        src = &src[index..];
+                        if !src.is_empty() {
+                            src = &src[1..];
+                        }
                         if let Some(value) = value {
                             if !value.is_empty() {
                                 buf.push_str(default);
@@ -366,9 +408,13 @@ impl<'a> Parser<'a> {
                         }
                     } else if src.starts_with('+') {
                         // default when set
+                        src = &src[1..];
                         let index = src.find('}').unwrap_or(src.len());
-                        let default = &src[2..index];
-                        src = &src[index + 1..];
+                        let default = &src[..index];
+                        src = &src[index..];
+                        if !src.is_empty() {
+                            src = &src[1..];
+                        }
                         if value.is_some() {
                             buf.push_str(default);
                         }

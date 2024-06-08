@@ -94,6 +94,7 @@ pub trait GetEnv {
 
 pub trait Env: GetEnv {
     fn set(&mut self, key: &OsStr, value: &OsStr);
+    fn as_get_env(&self) -> &dyn GetEnv;
 }
 
 /// Accessing the environment is unsafe (not thread safe), but the std::env::*
@@ -188,6 +189,11 @@ impl Env for SystemEnv {
 
         std::env::set_var(key, value);
     }
+
+    #[inline]
+    fn as_get_env(&self) -> &dyn GetEnv {
+        self
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -233,6 +239,11 @@ impl<BH: BuildHasher> Env for HashMap<OsString, OsString, BH> {
     fn set(&mut self, key: &OsStr, value: &OsStr) {
         self.insert(key.to_os_string(), value.to_os_string());
     }
+
+    #[inline]
+    fn as_get_env(&self) -> &dyn GetEnv {
+        self
+    }
 }
 
 impl<BH: BuildHasher> GetEnv for HashMap<String, String, BH> {
@@ -249,6 +260,11 @@ impl<BH: BuildHasher> Env for HashMap<String, String, BH> {
     #[inline]
     fn set(&mut self, key: &OsStr, value: &OsStr) {
         self.insert(key.to_string_lossy().into_owned(), value.to_string_lossy().into_owned());
+    }
+
+    #[inline]
+    fn as_get_env(&self) -> &dyn GetEnv {
+        self
     }
 }
 

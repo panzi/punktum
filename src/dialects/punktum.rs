@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fs::File, io::BufReader, path::Path};
 
-use crate::{env::GetEnv, error::SourceLocation, Encoding, Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
+use crate::{env::{EmptyEnv, GetEnv}, error::SourceLocation, Encoding, Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
 
 #[inline]
 fn is_word(ch: char) -> bool {
@@ -216,7 +216,7 @@ pub fn config_punktum(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<
                 index = skip_ws(&parser.linebuf, index + 1);
 
                 value.clear();
-                parser.parse_value(index, &mut value, env)?;
+                parser.parse_value(index, &mut value, env.as_get_env(), false)?;
 
                 options.set_var(env, key.as_ref(), value.as_ref());
             }
@@ -236,9 +236,68 @@ struct Parser<'c> {
     linebuf: String,
 }
 
+macro_rules! parse_var_error {
+    ($self:expr, $index:expr, $buf:expr, $key:expr, $env:expr, $message:expr) => {
+        if $buf.is_skipped() {
+            $index = $self.parse_value($index, &mut NullStringBuffer(), &EmptyEnv(), true)?;
+        } else {
+            let lineno = $self.lineno;
+            let column = $index + 1;
+            if $self.debug {
+                // abusing the buffer so not to make yet another allocation
+                let key_index = $buf.len();
+                $buf.push_str($key);
+                let message_index = $buf.len();
+                $self.parse_value($index, $buf, $env, true)?;
+                let message = $buf.tail(message_index);
+                if message.is_empty() {
+                    eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} {}",
+                        &$self.path, $self.lineno, $buf.slice(key_index, message_index),
+                        $message
+                    );
+                } else {
+                    eprintln!("{DEBUG_PREFIX}{}:{}: {}",
+                        &$self.path, $self.lineno, message
+                    );
+                }
+                $buf.truncate(key_index);
+            }
+            return Err(Error::substitution_error(lineno, column));
+        }
+    };
+}
+
 impl<'c> Parser<'c> {
-    fn parse_value(&mut self, mut index: usize, value: &mut String, env: &mut dyn Env) -> Result<usize> {
-        while let Some(mut ch) = char_at(&self.linebuf, index) {
+    fn parse_value(&mut self, mut index: usize, value: &mut dyn StringBuffer, env: &dyn GetEnv, nested: bool) -> Result<usize> {
+        loop {
+            if nested && index >= self.linebuf.len() {
+                index = 0;
+
+                self.linebuf.clear();
+                self.lineno += 1;
+                if let Err(err) = self.encoding.read_line(&mut self.reader, &mut self.linebuf) {
+                    if self.debug {
+                        eprintln!("{DEBUG_PREFIX}{}:{}:1: {err}", self.path, self.lineno);
+                    }
+                    if self.strict {
+                        return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(self.lineno, 1)));
+                    }
+                    if err.kind() == std::io::ErrorKind::InvalidData {
+                        break;
+                    } else {
+                        return Ok(index);
+                    }
+                }
+
+                if self.linebuf.is_empty() {
+                    return Ok(index);
+                }
+            }
+
+            let Some(mut ch) = char_at(&self.linebuf, index) else {
+                break;
+            };
+
             if ch == '"' || ch == '\'' {
                 let quote = ch;
                 index += 1;
@@ -257,7 +316,7 @@ impl<'c> Parser<'c> {
                             }
                             value.push_str(&self.linebuf[prev_index..]);
                             index = self.linebuf.len();
-                            break;
+                            return Ok(index);
                         };
                         ch = next_ch;
                     }
@@ -501,7 +560,7 @@ impl<'c> Parser<'c> {
                         }
                         '$' if quote == '"' => {
                             value.push_str(&self.linebuf[prev_index..index]);
-                            index = self.parse_var(&self.linebuf, index + 1, value, env)?;
+                            index = self.parse_var(index + 1, value, env)?;
                             prev_index = index;
                         }
                         '\n' => {
@@ -556,10 +615,12 @@ impl<'c> Parser<'c> {
                         }
                     }
                 }
-            } else if ch == '#' {
+            } else if ch == '#' && !nested {
+                break;
+            } else if ch == '}' && nested {
                 break;
             } else if ch == '$' {
-                index = self.parse_var(&self.linebuf, index + 1, value, env)?;
+                index = self.parse_var(index + 1, value, env)?;
             } else if ch == '\0' {
                 let column = index + 1;
                 if self.debug {
@@ -570,6 +631,50 @@ impl<'c> Parser<'c> {
                     return Err(Error::syntax_error(self.lineno, column));
                 }
                 index += 1;
+            } else if nested {
+                let mut prev_index = index;
+
+                loop {
+                    let next_index = skip_ws(&self.linebuf, index);
+                    let Some(ch) = char_at(&self.linebuf, next_index) else {
+                        value.push_str(&self.linebuf[prev_index..]);
+
+                        index = 0;
+                        prev_index = index;
+                        self.linebuf.clear();
+                        self.lineno += 1;
+
+                        if let Err(err) = self.encoding.read_line(&mut self.reader, &mut self.linebuf) {
+                            if self.debug {
+                                eprintln!("{DEBUG_PREFIX}{}:{}:1: {err}", self.path, self.lineno);
+                            }
+                            if self.strict {
+                                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(self.lineno, 1)));
+                            }
+                            if err.kind() == std::io::ErrorKind::InvalidData {
+                                continue;
+                            } else {
+                                return Ok(index);
+                            }
+                        }
+
+                        if self.linebuf.is_empty() {
+                            return Ok(index);
+                        }
+
+                        continue;
+                    };
+
+                    index = next_index;
+                    if ch == '"' || ch == '\'' || ch == '\0' || ch == '$' || ch == '}' {
+                        break;
+                    }
+                    index += ch.len_utf8();
+                }
+
+                if index > prev_index {
+                    value.push_str(&self.linebuf[prev_index..index]);
+                }
             } else {
                 let prev_index = index;
 
@@ -594,19 +699,23 @@ impl<'c> Parser<'c> {
                     }
                 }
 
-                let mut eol = false;
                 loop {
                     let next_index = skip_ws(&self.linebuf, index);
                     let Some(ch) = char_at(&self.linebuf, next_index) else {
                         // ignore trailing space
-                        eol = true;
-                        break;
+                        if index > prev_index {
+                            value.push_str(&self.linebuf[prev_index..index]);
+                        }
+                        index = self.linebuf.len();
+                        return Ok(index);
                     };
 
                     if ch == '#' {
                         // ignore trailing space before comment
-                        eol = true;
-                        break;
+                        if index > prev_index {
+                            value.push_str(&self.linebuf[prev_index..index]);
+                        }
+                        return Ok(self.linebuf.len());
                     }
 
                     index = next_index;
@@ -619,68 +728,221 @@ impl<'c> Parser<'c> {
                 if index > prev_index {
                     value.push_str(&self.linebuf[prev_index..index]);
                 }
-
-                if eol {
-                    break;
-                }
             }
         }
         Ok(index)
     }
 
-    fn parse_var(&'c self, src: &str, mut index: usize, buf: &mut String, env: &mut dyn Env) -> Result<usize> {
+    fn parse_var(&mut self, mut index: usize, buf: &mut dyn StringBuffer, env: &dyn GetEnv) -> Result<usize> {
         let var_start_index = index - 1;
-        let brace = src[index..].starts_with('{');
+        let brace = self.linebuf[index..].starts_with('{');
         if brace {
             index += 1;
         }
-        let end_index = find_word_end(src, index);
+        let end_index = find_word_end(&self.linebuf, index);
 
-        if brace && !src[end_index..].starts_with('}') {
+        if end_index == index {
             let column = var_start_index + 1;
-            if self.debug {
-                let line = src.trim_end_matches('\n');
-                eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected '}}': {line}", self.path, self.lineno);
-            }
-            if self.strict {
-                return Err(Error::syntax_error(self.lineno, column));
-            }
             index = end_index;
-            buf.push_str(&src[var_start_index..index]);
-        } else if end_index == index {
-            let column = var_start_index + 1;
-            if brace {
-                if self.debug {
-                    let line = src.trim_end_matches('\n');
-                    eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: ${{}} found: {line}", self.path, self.lineno);
-                }
 
-                index = end_index + 1;
-            } else {
-                if self.debug {
-                    let line = src.trim_end_matches('\n');
+            if self.debug {
+                let line = self.linebuf.trim_end_matches('\n');
+                if brace {
+                    eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: ${{}} with empty variable name: {line}", self.path, self.lineno);
+                } else {
                     eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: single $ found: {line}", self.path, self.lineno);
                 }
-
-                index = end_index;
             }
 
             if self.strict {
                 return Err(Error::syntax_error(self.lineno, column));
             }
 
-            buf.push_str(&src[var_start_index..index]);
-        } else {
-            if let Some(val) = env.get(src[index..end_index].as_ref()) {
-                buf.push_str(val.to_string_lossy().as_ref());
+            if brace {
+                index += 1;
             }
-            index = if brace {
-                end_index + 1
+
+            buf.push_str(&self.linebuf[var_start_index..index]);
+
+            return Ok(index);
+        }
+
+        let key = &self.linebuf[index..end_index];
+        let value = env.get(key.as_ref());
+        index = end_index;
+        if brace {
+            let tail = &self.linebuf[index..];
+
+            if tail.starts_with(":?") {
+                // required error when empty or unset
+                index += 2;
+                if let Some(value) = value {
+                    if value.is_empty() {
+                        parse_var_error!(self, index, buf, key, env, "may not be empty");
+                    } else {
+                        buf.push_str(value.to_string_lossy().as_ref());
+                        index = self.parse_value(index, &mut NullStringBuffer(), &EmptyEnv(), true)?;
+                    }
+                } else {
+                    parse_var_error!(self, index, buf, key, env, "may not be unset");
+                }
+            } else if tail.starts_with('?') {
+                // required error when unset
+                index += 1;
+                if let Some(value) = value {
+                    buf.push_str(value.to_string_lossy().as_ref());
+                    index = self.parse_value(index, &mut NullStringBuffer(), &EmptyEnv(), true)?;
+                } else {
+                    parse_var_error!(self, index, buf, key, env, "may not be unset");
+                }
+            } else if tail.starts_with(":-") {
+                // default when empty or unset
+                index += 2;
+                if let Some(value) = value {
+                    if value.is_empty() {
+                        index = self.parse_value(index, buf, env, true)?;
+                    } else {
+                        buf.push_str(value.to_string_lossy().as_ref());
+                        index = self.parse_value(index, &mut NullStringBuffer(), &EmptyEnv(), true)?;
+                    }
+                } else {
+                    index = self.parse_value(index, buf, env, true)?;
+                }
+            } else if tail.starts_with('-') {
+                // default when unset
+                index += 1;
+                if let Some(value) = value {
+                    buf.push_str(value.to_string_lossy().as_ref());
+                    index = self.parse_value(index, &mut NullStringBuffer(), &EmptyEnv(), true)?;
+                } else {
+                    index = self.parse_value(index, buf, env, true)?;
+                }
+            } else if tail.starts_with(":+") {
+                // default when not empty
+                index += 2;
+                if let Some(value) = value {
+                    if value.is_empty() {
+                        index = self.parse_value(index, &mut NullStringBuffer(), &EmptyEnv(), true)?;
+                    } else {
+                        index = self.parse_value(index, buf, env, true)?;
+                    }
+                } else {
+                    index = self.parse_value(index, &mut NullStringBuffer(), &EmptyEnv(), true)?;
+                }
+            } else if tail.starts_with('+') {
+                // default when set
+                index += 1;
+                if value.is_some() {
+                    index = self.parse_value(index, buf, env, true)?;
+                } else {
+                    index = self.parse_value(index, &mut NullStringBuffer(), &EmptyEnv(), true)?;
+                }
             } else {
-                end_index
-            };
+                if let Some(value) = value {
+                    buf.push_str(value.to_string_lossy().as_ref());
+                }
+            }
+
+            let tail = &self.linebuf[index..];
+            if tail.starts_with('}') {
+                index += 1;
+            } else {
+                let column = end_index + 1;
+                if self.debug {
+                    let line = self.linebuf.trim_end_matches('\n');
+                    eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected '}}': {line}", self.path, self.lineno);
+                }
+                if self.strict {
+                    return Err(Error::syntax_error(self.lineno, column));
+                }
+                index = end_index;
+                buf.push_str(&self.linebuf[var_start_index..index]);
+            }
+        } else {
+            if let Some(value) = value {
+                // TODO: don't use lossy when strict?
+                buf.push_str(value.to_string_lossy().as_ref());
+            }
         }
 
         Ok(index)
+    }
+}
+
+trait StringBuffer {
+    fn push(&mut self, ch: char);
+    fn push_str(&mut self, string: &str);
+    fn len(&self) -> usize;
+    fn truncate(&mut self, new_len: usize);
+    fn is_skipped(&self) -> bool;
+    fn tail(&self, index: usize) -> &str;
+    fn slice(&self, start_index: usize, end_index: usize) -> &str;
+}
+
+impl StringBuffer for String {
+    #[inline]
+    fn push(&mut self, ch: char) {
+        String::push(self, ch);
+    }
+
+    #[inline]
+    fn push_str(&mut self, string: &str) {
+        String::push_str(self, string);
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        String::len(self)
+    }
+
+    #[inline]
+    fn truncate(&mut self, new_len: usize) {
+        String::truncate(self, new_len);
+    }
+
+    #[inline]
+    fn is_skipped(&self) -> bool {
+        false
+    }
+
+    #[inline]
+    fn tail(&self, index: usize) -> &str {
+        &self[index..]
+    }
+
+    #[inline]
+    fn slice(&self, start_index: usize, end_index: usize) -> &str {
+        &self[start_index..end_index]
+    }
+}
+
+struct NullStringBuffer();
+
+impl StringBuffer for NullStringBuffer {
+    #[inline]
+    fn push(&mut self, _ch: char) {}
+
+    #[inline]
+    fn push_str(&mut self, _string: &str) {}
+
+    #[inline]
+    fn len(&self) -> usize { 0 }
+
+    #[inline]
+    fn truncate(&mut self, _new_len: usize) {}
+
+    #[inline]
+    fn is_skipped(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    fn tail(&self, _index: usize) -> &str {
+        ""
+    }
+
+    #[inline]
+    fn slice(&self, _start_index: usize, _end_index: usize) -> &str {
+        ""
     }
 }
