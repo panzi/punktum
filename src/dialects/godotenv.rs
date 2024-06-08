@@ -70,7 +70,6 @@ pub fn config_godotenv(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options
             cutset = left;
             continue;
         }
-
         let (value, left) = parser.extract_var_value(left, env)?;
         let raw_value = &value;
         let value = value.split('\0').next().unwrap();
@@ -98,7 +97,7 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn get_statement_start<'b>(&self, mut src: &'b str) -> Option<&'b str> {
+    fn get_statement_start<'b>(&mut self, mut src: &'b str) -> Option<&'b str> {
         loop {
             let pos = self.index_of_non_space_char(src)?;
 
@@ -114,8 +113,13 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn index_of_non_space_char(&self, src: &str) -> Option<usize> {
-        src.find(|ch: char| !ch.is_whitespace())
+    fn index_of_non_space_char(&mut self, src: &str) -> Option<usize> {
+        src.find(|ch: char| {
+            if ch == '\n' {
+                self.lineno += 1;
+            }
+            !ch.is_whitespace()
+        })
     }
 
     fn trim_export<'b>(&self, src: &'b str) -> &'b str {
@@ -153,11 +157,12 @@ impl<'a> Parser<'a> {
                     inherited = rune == '\n';
                     break;
                 }
+                '_'|'.'|'-'|'['|']' => {}
                 _ => {
-                    if rune.is_ascii_alphanumeric() || rune == '_' || rune == '.' || rune == '-' || rune == '[' || rune == ']' {
+                    if rune.is_ascii_alphanumeric() {
                         continue;
                     }
-    
+
                     if self.debug {
                         let newline = src.find('\n').unwrap_or(src.len());
                         eprintln!("{DEBUG_PREFIX}{}:{}: unexpected character {} in variable name {:?}",
@@ -204,6 +209,7 @@ impl<'a> Parser<'a> {
 
         let quote = quote.get() as char;
         let mut value = String::new();
+        let src = &src[1..];
         for (index, ch) in src.char_indices() {
             if ch == '\n' {
                 self.lineno += 1;
@@ -229,10 +235,10 @@ impl<'a> Parser<'a> {
 
             if quote == '"' {
                 let res = self.expand_variables(&expand_escapes(&value), env)?;
-                return Ok((res, &src[index + 1..]));
+                return Ok((res, &src[index + ch.len_utf8()..]));
             }
 
-            return Ok((value, &src[index + 1..]));
+            return Ok((value, &src[index + ch.len_utf8()..]));
         }
 
         let val_end_index = src.find('\n').unwrap_or(src.len());
@@ -251,6 +257,7 @@ impl<'a> Parser<'a> {
 
         while !src.is_empty() {
             let Some(index) = src.find('$') else {
+                buf.push_str(src);
                 break;
             };
 
@@ -439,7 +446,7 @@ fn expand_escapes(mut src: &str) -> String {
         match ch {
             'a' => buf.push('\x07'),
             'b' => buf.push('\x08'),
-            // 'c' => {} // XXX
+            // 'c' => {} // XXX: I think this is a mistake in the original? Not sure.
             'f' => buf.push('\x0C'),
             'n' => buf.push('\n'),
             'r' => buf.push('\r'),
