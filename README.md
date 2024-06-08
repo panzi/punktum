@@ -24,5 +24,5 @@ with my limited manual test.
 | Punktum | Works | Crazy dialect I made up. |
 | NodeJS  | Works | Should be compatible to [NodeJS](https://nodejs.org/) v22's built in `--env-file=...` option. |
 | PythonDotenvCLI | Works | Compatible to [dotenv-cli](https://github.com/venthur/dotenv-cli#readme) pypi pacakge |
-| GoDotenv | WIP/Broken | Compatible to [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose |
+| ComposeGo | WIP/Broken | Compatible to [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose |
 | JavaScriptDotenv | Not Implemented | Compatible to [dotenv](https://github.com/motdotla/dotenv#readme) npm package |

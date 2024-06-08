@@ -51,7 +51,7 @@ Environemnt variables:
     - Punktum (default)
     - NodeJS
     - PythonDotenvCLI
-    - GoDotenv
+    - ComposeGo
     - JavaScriptDotenv
 ";
 

@@ -9,7 +9,7 @@ use std::ffi::OsString;
 use std::path::Path;
 
 pub mod error;
-use dialects::godotenv::config_godotenv;
+use dialects::composego::config_composego;
 use dialects::jsdotenv::config_jsdotenv;
 use dialects::nodejs::config_nodejs;
 use dialects::punktum::config_punktum;
@@ -90,6 +90,6 @@ where P: AsRef<Path> + Clone {
         Dialect::JavaScriptDotenv => config_jsdotenv(env, &options),
         Dialect::NodeJS => config_nodejs(env, &options),
         Dialect::PythonDotenvCLI => config_pydotenvcli(env, &options),
-        Dialect::GoDotenv => config_godotenv(env, parent, &options),
+        Dialect::ComposeGo => config_composego(env, parent, &options),
     }
 }

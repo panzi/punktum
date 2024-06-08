@@ -3,7 +3,8 @@ use std::{borrow::Cow, fs::File, io::BufReader, num::NonZeroU8, path::Path};
 use crate::{env::GetEnv, Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
 
 // trying to be compatible to: https://github.com/compose-spec/compose-go/blob/main/dotenv/parser.go
-pub fn config_godotenv(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
+// maybe also implement this? https://github.com/joho/godotenv/blob/v1.5.1/parser.go
+pub fn config_composego(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
 
     let src = match File::open(options.path) {
