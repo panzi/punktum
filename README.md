@@ -23,11 +23,11 @@ with my limited manual test.
 |:-|:-:|:-|
 | Punktum | Works | Crazy dialect I made up. |
 | NodeJS  | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
-| PythonDotenvCLI | Works | Compatible to [dotenv-cli](https://github.com/venthur/dotenv-cli#readme) pypi package |
-| ComposeGo | Works? | Compatible to [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
+| PythonDotenvCLI | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli#readme) pypi package. |
+| ComposeGo | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
 | GoDotenv | Not Implemented | Compatible to [godotenv](https://github.com/joho/godotenv), which is slightly different to the above. |
-| RubyDotenv | Not Implemented | Compatible to [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. |
-| JavaScriptDotenv | Not Implemented | Compatible to [dotenv](https://github.com/motdotla/dotenv#readme) npm package. |
+| RubyDotenv | Not Implemented | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. |
+| JavaScriptDotenv | Not Implemented | Compatible to the [dotenv](https://github.com/motdotla/dotenv#readme) npm package. |
 
 I might not implement any more dialects than I have right now.
 
