@@ -42,8 +42,8 @@ impl TryFrom<&OsStr> for Dialect {
                   value.eq_ignore_ascii_case("python-dotenv-cli") ||
                   value.eq_ignore_ascii_case("py-dotenv-cli") {
             Ok(Dialect::PythonDotenvCLI)
-        } else if value.eq_ignore_ascii_case("godotenv") ||
-                  value.eq_ignore_ascii_case("go-dotenv") {
+        } else if value.eq_ignore_ascii_case("composego") ||
+                  value.eq_ignore_ascii_case("compose-go") {
             Ok(Dialect::ComposeGo)
         } else {
             Err(IllegalDialect())
