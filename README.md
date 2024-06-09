@@ -52,9 +52,12 @@ Optional arguments:
   -h, --help                Print this help message and exit.
   -v, --version             Print program's version and exit.
   -f DOTENV, --file=DOTENV  File to use instead of .env
-                            This option can be passed multiple times. All files are loaded in order.
-  -r, --replace             Completely replace all existing environment variables with the ones loaded from the .env file.
-  -p, --print-env           Instead of running a command print the built environment in a syntax compatible to Punktum and bash.
+                            This option can be passed multiple times.
+                            All files are loaded in order.
+  -r, --replace             Completely replace all existing environment variables with
+                            the ones loaded from the .env file.
+  -p, --print-env           Instead of running a command print the built environment
+                            in a syntax compatible to Punktum and bash.
       --sorted              Sort printed environment variables for reproducible output.
       --export              Add 'export ' prefix to every printed environment variable.
 
@@ -77,8 +80,8 @@ Environemnt variables:
 
     Supported values:
     - ASCII
-    - ISO-8859-1 (alias: Latin1)
-    - UTF-8 (default)
+    - ISO-8859-1  (alias: Latin1)
+    - UTF-8       (default)
     - UTF-16BE
     - UTF-16LE
     - UTF-32BE
