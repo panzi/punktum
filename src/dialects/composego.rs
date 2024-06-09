@@ -30,6 +30,7 @@ pub fn config_composego(env: &mut dyn Env, parent: &dyn GetEnv, options: &Option
         lineno: 1,
         path: path_str,
         debug: options.debug,
+        strict: options.strict,
     };
 
     loop {
@@ -95,6 +96,7 @@ struct Parser<'a> {
     lineno: usize,
     path: Cow<'a, str>,
     debug: bool,
+    strict: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -294,19 +296,52 @@ impl<'a> Parser<'a> {
                                 &self.path, self.lineno
                             );
                         }
-                        return Err(Error::syntax_error(self.lineno, 1));
+                        if self.strict {
+                            return Err(Error::syntax_error(self.lineno, 1));
+                        }
+                        buf.push_str("${");
+                        continue;
                     }
 
                     let name = &src[..index].split('\0').next().unwrap();
                     src = &src[index..];
                     let value = env.get(name.as_ref());
+                    let var_end_index = if src.starts_with(|ch| ch == ':' || ch == '?' ||ch == '+' || ch == '-') {
+                        let var_end_index = find_var_end(src);
+                        if var_end_index >= src.len() {
+                            if self.debug {
+                                eprintln!("{DEBUG_PREFIX}{}:{}: expected: \"}}\", actual: {src:?}",
+                                    &self.path, self.lineno
+                                );
+                            }
+                            if self.strict {
+                                return Err(Error::syntax_error(self.lineno, 1));
+                            }
+                            buf.push_str("${");
+                            buf.push_str(name);
+                            continue;
+                        }
+                        var_end_index
+                    } else if src.starts_with('}') {
+                        0
+                    } else {
+                        if self.debug {
+                            eprintln!("{DEBUG_PREFIX}{}:{}: expected: \"}}\", actual: {src:?}",
+                                &self.path, self.lineno
+                            );
+                        }
+                        if self.strict {
+                            return Err(Error::syntax_error(self.lineno, 1));
+                        }
+                        buf.push_str("${");
+                        buf.push_str(name);
+                        continue;
+                    };
 
                     if src.starts_with(":?") {
                         // required error when empty or unset
-                        src = &src[2..];
-                        let index = find_var_end(src);
-                        let message = &src[..index];
-                        src = &src[index..];
+                        let message = &src[2..var_end_index];
+                        src = &src[var_end_index..];
                         if let Some(value) = value {
                             if value.is_empty() {
                                 if self.debug {
@@ -341,10 +376,8 @@ impl<'a> Parser<'a> {
                         }
                     } else if src.starts_with('?') {
                         // required error when unset
-                        src = &src[1..];
-                        let index = find_var_end(src);
-                        let message = &src[..index];
-                        src = &src[index..];
+                        let message = &src[1..var_end_index];
+                        src = &src[var_end_index..];
                         if let Some(value) = value {
                             buf.push_str(value.to_string_lossy().as_ref());
                         } else {
@@ -364,10 +397,8 @@ impl<'a> Parser<'a> {
                         }
                     } else if src.starts_with(":-") {
                         // default when empty or unset
-                        src = &src[2..];
-                        let index = find_var_end(src);
-                        let default = &src[..index];
-                        src = &src[index..];
+                        let default = &src[2..var_end_index];
+                        src = &src[var_end_index..];
                         if let Some(value) = value {
                             if value.is_empty() {
                                 let default = self.expand_variables(default, env)?;
@@ -381,10 +412,8 @@ impl<'a> Parser<'a> {
                         }
                     } else if src.starts_with('-') {
                         // default when unset
-                        src = &src[1..];
-                        let index = find_var_end(src);
-                        let default = &src[..index];
-                        src = &src[index..];
+                        let default = &src[1..var_end_index];
+                        src = &src[var_end_index..];
                         if let Some(value) = value {
                             buf.push_str(value.to_string_lossy().as_ref());
                         } else {
@@ -393,10 +422,8 @@ impl<'a> Parser<'a> {
                         }
                     } else if src.starts_with(":+") {
                         // default when not empty
-                        src = &src[2..];
-                        let index = find_var_end(src);
-                        let default = &src[..index];
-                        src = &src[index..];
+                        let default = &src[2..var_end_index];
+                        src = &src[var_end_index..];
                         if let Some(value) = value {
                             if !value.is_empty() {
                                 let default = self.expand_variables(default, env)?;
@@ -405,10 +432,8 @@ impl<'a> Parser<'a> {
                         }
                     } else if src.starts_with('+') {
                         // default when set
-                        src = &src[1..];
-                        let index = find_var_end(src);
-                        let default = &src[..index];
-                        src = &src[index..];
+                        let default = &src[1..var_end_index];
+                        src = &src[var_end_index..];
                         if value.is_some() {
                             let default = self.expand_variables(default, env)?;
                             buf.push_str(&default);
@@ -427,6 +452,7 @@ impl<'a> Parser<'a> {
                         }
                         return Err(Error::syntax_error(self.lineno, 1));
                     }
+
                     src = &src[1..];
                 }
                 _ => {
@@ -534,6 +560,7 @@ fn is_space(ch: char) -> bool {
     matches!(ch, '\t' | '\x0B' | '\x0C' | '\r' | ' ' | '\u{85}' | '\u{A0}')
 }
 
+// I'm not sure if the oroginal can even handle nested variable substitutions like that.
 fn find_var_end(src: &str) -> usize {
     let mut nesting = 0;
     let mut prev_dollar = false;
