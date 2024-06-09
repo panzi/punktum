@@ -162,7 +162,7 @@ impl<'a> Parser<'a> {
                 }
                 '_'|'.'|'-'|'['|']' => {}
                 _ => {
-                    if rune.is_ascii_alphanumeric() {
+                    if rune.is_alphanumeric() {
                         continue;
                     }
 
