@@ -304,7 +304,7 @@ impl<'a> Parser<'a> {
                     if src.starts_with(":?") {
                         // required error when empty or unset
                         src = &src[2..];
-                        let index = src.find('}').unwrap_or(src.len());
+                        let index = find_var_end(src);
                         let message = &src[..index];
                         src = &src[index..];
                         if let Some(value) = value {
@@ -342,7 +342,7 @@ impl<'a> Parser<'a> {
                     } else if src.starts_with('?') {
                         // required error when unset
                         src = &src[1..];
-                        let index = src.find('}').unwrap_or(src.len());
+                        let index = find_var_end(src);
                         let message = &src[..index];
                         src = &src[index..];
                         if let Some(value) = value {
@@ -365,7 +365,7 @@ impl<'a> Parser<'a> {
                     } else if src.starts_with(":-") {
                         // default when empty or unset
                         src = &src[2..];
-                        let index = src.find('}').unwrap_or(src.len());
+                        let index = find_var_end(src);
                         let default = &src[..index];
                         src = &src[index..];
                         if let Some(value) = value {
@@ -382,7 +382,7 @@ impl<'a> Parser<'a> {
                     } else if src.starts_with('-') {
                         // default when unset
                         src = &src[1..];
-                        let index = src.find('}').unwrap_or(src.len());
+                        let index = find_var_end(src);
                         let default = &src[..index];
                         src = &src[index..];
                         if let Some(value) = value {
@@ -394,7 +394,7 @@ impl<'a> Parser<'a> {
                     } else if src.starts_with(":+") {
                         // default when not empty
                         src = &src[2..];
-                        let index = src.find('}').unwrap_or(src.len());
+                        let index = find_var_end(src);
                         let default = &src[..index];
                         src = &src[index..];
                         if let Some(value) = value {
@@ -406,7 +406,7 @@ impl<'a> Parser<'a> {
                     } else if src.starts_with('+') {
                         // default when set
                         src = &src[1..];
-                        let index = src.find('}').unwrap_or(src.len());
+                        let index = find_var_end(src);
                         let default = &src[..index];
                         src = &src[index..];
                         if value.is_some() {
@@ -532,4 +532,26 @@ fn has_quote_prefix(src: &str) -> Option<NonZeroU8> {
 #[inline]
 fn is_space(ch: char) -> bool {
     matches!(ch, '\t' | '\x0B' | '\x0C' | '\r' | ' ' | '\u{85}' | '\u{A0}')
+}
+
+fn find_var_end(src: &str) -> usize {
+    let mut nesting = 0;
+    let mut prev_dollar = false;
+    for (index, ch) in src.char_indices() {
+        if ch == '}' {
+            if nesting == 0 {
+                return index;
+            }
+            nesting -= 1;
+            prev_dollar = false;
+        } else if ch == '$' {
+            prev_dollar = !prev_dollar;
+        } else if ch == '{' && prev_dollar {
+            nesting += 1;
+            prev_dollar = false;
+        } else {
+            prev_dollar = false;
+        }
+    }
+    src.len()
 }
