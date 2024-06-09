@@ -501,7 +501,7 @@ fn expand_escapes(mut src: &str) -> String {
             break;
         };
 
-        src = &src[1..];
+        src = &src[ch.len_utf8()..];
 
         match ch {
             'a' => buf.push('\x07'),
