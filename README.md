@@ -43,10 +43,14 @@ VAR_IMPORT    := NAME
 NAME          := NAME_CHAR { NAME_CHAR }
 NAME_CHAR     := "a"..."z" | "A"..."Z" | "0"..."9" | "_"
 VALUE         := { DOUBLE_QUOTED | SINGLE_QUOTED | UNQUOTED }
-DOUBLE_QUOTED := '"' { ESCAPE_SEQUENCE | NOT('"') | VAR_SUBST } '"'
+DOUBLE_QUOTED := '"' { ESCAPE_SEQ | NOT('"') | VAR_SUBST } '"'
 SINGLE_QUOTED := "'" { NOT("'") } "'"
 UNQUOTED      := { NOT('"' | "'" | "$" | "\n" | "#") | VAR_SUBST }
 VAR_SUBST     := "$" NAME | "${" NAME [ ":?" | "?" | ":-" | "-" | ":+" | "+" ] VALUE "}"
+ESCAPE_SEQ    := "\" ( "\" | '"' | "'" | "$" | "r" | "n" | "t" | "f" | "b" | "\n" ) |
+                 UTF16_ESC_SEQ | UTF32_ESC_SEQ
+UTF16_ESC_SEQ := "\u" HEX*4
+UTF32_ESC_SEQ := "\U" HEX*6
 COMMENT       := "#" { NOT("\n") }
 ```
 
@@ -64,6 +68,9 @@ Both single and double quoted strings can be multiline. Variables can be refrenc
 in unquoted and double quoted strings. Escape sequences are only evaluated inside
 of double quoted strings.
 
+Note that UTF-16 escape sequences need to encode valid surrogate pairs if they
+encode a large enough code-point. Invalid Unicode values are rejected as an error.
+
 The variable substitution syntax is similar to the Unix shell. Variables are only
 read from the current environment, not the parent environemnt. You need to import them
 first to use them. (Should that be changed?)
@@ -79,6 +86,26 @@ first to use them. (Should that be changed?)
 
 The `MESSAGE`/`DEFAULT` part can be anything like in a value, only not a `}` outside
 of a quoted string.
+
+If you want to write a `.env` file in the Punktum dialect conatining arbitarary
+characters you can quote the values very easily like this:
+
+```JavaScript
+var env = new Map();
+// env is filled somehow...
+for (const [key, value] of env) {
+    console.log(`${key}='${value.replaceAll("'", "'\"'\"'")}'`);
+}
+```
+
+Meaning, you put the value into single quotes and replace any `'` in your value
+with `'"'"'`.
+
+The keys need to be valid names as described above, though. This then happens to
+also be valid Unix shell syntax and I think also valid syntax for
+[dotenvy](https://github.com/allan2/dotenvy). It isn't valid for many (any?)
+other dotenv implementations, since they only allow one single quoted string and
+not a sequence of quoted strings.
 
 Binary
 ------
