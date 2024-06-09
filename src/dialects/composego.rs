@@ -71,7 +71,7 @@ pub fn config_composego(env: &mut dyn Env, parent: &dyn GetEnv, options: &Option
             cutset = left;
             continue;
         }
-        let (value, left) = parser.extract_var_value(left, env)?;
+        let (value, left) = parser.extract_var_value(left, env.as_get_env())?;
         let raw_value = &value;
         let value = value.split('\0').next().unwrap();
         if value.len() != raw_value.len() {
@@ -192,11 +192,16 @@ impl<'a> Parser<'a> {
         Ok((key, cutset, inherited))
     }
 
-    fn extract_var_value<'b>(&mut self, src: &'b str, env: &mut dyn Env) -> Result<(String, &'b str)> {
+    fn extract_var_value<'b>(&mut self, src: &'b str, env: &dyn GetEnv) -> Result<(String, &'b str)> {
         let Some(quote) = has_quote_prefix(src) else {
             let index = src.find('\n').unwrap_or(src.len());
-            let (mut value, rest) = src.split_at(index);
-            self.lineno += 1;
+            let mut value = &src[..index];
+            let rest = if index < src.len() {
+                self.lineno += 1;
+                &src[index + 1..]
+            } else {
+                &src[index..]
+            };
 
             if let Some(index) = value.find(" #") {
                 value = &value[..index];
@@ -253,7 +258,7 @@ impl<'a> Parser<'a> {
     }
 
     // see: https://github.com/compose-spec/compose-go/blob/e1496cd905b20b799fa3acecefed8056338961a2/template/template.go
-    fn expand_variables(&self, mut src: &str, env: &mut dyn Env) -> Result<String> {
+    fn expand_variables(&self, mut src: &str, env: &dyn GetEnv) -> Result<String> {
         let mut buf = String::new();
 
         while !src.is_empty() {
@@ -302,12 +307,10 @@ impl<'a> Parser<'a> {
                         let index = src.find('}').unwrap_or(src.len());
                         let message = &src[..index];
                         src = &src[index..];
-                        if !src.is_empty() {
-                            src = &src[1..];
-                        }
                         if let Some(value) = value {
                             if value.is_empty() {
                                 if self.debug {
+                                    let message = self.expand_variables(message, env)?;
                                     if message.is_empty() {
                                         eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} may not be empty",
                                             &self.path, self.lineno, name
@@ -323,6 +326,7 @@ impl<'a> Parser<'a> {
                             buf.push_str(value.to_string_lossy().as_ref());
                         } else {
                             if self.debug {
+                                let message = self.expand_variables(message, env)?;
                                 if message.is_empty() {
                                     eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} may not be unset",
                                         &self.path, self.lineno, name
@@ -341,13 +345,11 @@ impl<'a> Parser<'a> {
                         let index = src.find('}').unwrap_or(src.len());
                         let message = &src[..index];
                         src = &src[index..];
-                        if !src.is_empty() {
-                            src = &src[1..];
-                        }
                         if let Some(value) = value {
                             buf.push_str(value.to_string_lossy().as_ref());
                         } else {
                             if self.debug {
+                                let message = self.expand_variables(message, env)?;
                                 if message.is_empty() {
                                     eprintln!("{DEBUG_PREFIX}{}:{}: variable ${} may not be unset",
                                         &self.path, self.lineno, name
@@ -366,17 +368,16 @@ impl<'a> Parser<'a> {
                         let index = src.find('}').unwrap_or(src.len());
                         let default = &src[..index];
                         src = &src[index..];
-                        if !src.is_empty() {
-                            src = &src[1..];
-                        }
                         if let Some(value) = value {
                             if value.is_empty() {
-                                buf.push_str(default);
+                                let default = self.expand_variables(default, env)?;
+                                buf.push_str(&default);
                             } else {
                                 buf.push_str(value.to_string_lossy().as_ref());
                             }
                         } else {
-                            buf.push_str(default);
+                            let default = self.expand_variables(default, env)?;
+                            buf.push_str(&default);
                         }
                     } else if src.starts_with('-') {
                         // default when unset
@@ -384,13 +385,11 @@ impl<'a> Parser<'a> {
                         let index = src.find('}').unwrap_or(src.len());
                         let default = &src[..index];
                         src = &src[index..];
-                        if !src.is_empty() {
-                            src = &src[1..];
-                        }
                         if let Some(value) = value {
                             buf.push_str(value.to_string_lossy().as_ref());
                         } else {
-                            buf.push_str(default);
+                            let default = self.expand_variables(default, env)?;
+                            buf.push_str(&default);
                         }
                     } else if src.starts_with(":+") {
                         // default when not empty
@@ -398,12 +397,10 @@ impl<'a> Parser<'a> {
                         let index = src.find('}').unwrap_or(src.len());
                         let default = &src[..index];
                         src = &src[index..];
-                        if !src.is_empty() {
-                            src = &src[1..];
-                        }
                         if let Some(value) = value {
                             if !value.is_empty() {
-                                buf.push_str(default);
+                                let default = self.expand_variables(default, env)?;
+                                buf.push_str(&default);
                             }
                         }
                     } else if src.starts_with('+') {
@@ -412,29 +409,19 @@ impl<'a> Parser<'a> {
                         let index = src.find('}').unwrap_or(src.len());
                         let default = &src[..index];
                         src = &src[index..];
-                        if !src.is_empty() {
-                            src = &src[1..];
-                        }
                         if value.is_some() {
-                            buf.push_str(default);
+                            let default = self.expand_variables(default, env)?;
+                            buf.push_str(&default);
                         }
-                    } else if src.starts_with('}') {
-                        src = &src[1..];
+                    } else {
                         if let Some(value) = value {
                             buf.push_str(value.to_string_lossy().as_ref());
                         }
-                    } else {
-                        if self.debug {
-                            eprintln!("{DEBUG_PREFIX}{}:{}: substitution syntax error",
-                                &self.path, self.lineno
-                            );
-                        }
-                        return Err(Error::syntax_error(self.lineno, 1));
                     }
 
                     if !src.starts_with('}') {
                         if self.debug {
-                            eprintln!("{DEBUG_PREFIX}{}:{}: expected }}",
+                            eprintln!("{DEBUG_PREFIX}{}:{}: expected: \"}}\", actual: {src:?}",
                                 &self.path, self.lineno
                             );
                         }
