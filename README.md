@@ -28,6 +28,7 @@ with my limited manual test.
 | GoDotenv | Not Implemented | Compatible to [godotenv](https://github.com/joho/godotenv), which is slightly different to the above. |
 | RubyDotenv | Not Implemented | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. |
 | JavaScriptDotenv | Not Implemented | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. |
+| Binary | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only used UTF-8. |
 
 I might not implement any more dialects than I have right now.
 
@@ -121,8 +122,31 @@ for (const [key, value] of env) {
 It should work best with Python's [dotenv-cli](https://github.com/venthur/dotenv-cli),
 but the other dialects don't support UTF-16 unicode escape sequences (`\u####`).
 
-Binary
-------
+Binary Dialect
+--------------
+
+The *Binary* dialect as an output-format can be used for things like this:
+
+```bash
+punktum --replace --file examples/vars.env --sorted --print-env --binary | while read -r -d "" line; do
+    printf "%s=%q\n" "${line%%=*}" "${line#*=}"
+done
+```
+
+I don't know why you'd want to do that, but you can!
+
+Writing it is also simple:
+
+```Rust
+let env = HashMap::new();
+// env is filled somehow...
+for (key, value) in &env {
+  write!(writer, "{key}={value}\0")?;
+}
+```
+
+`punktum` Binary
+----------------
 
 Punktum comes as a library and as a binary. Usage of the binary:
 
@@ -183,4 +207,5 @@ Environemnt variables:
     - NodeJS
     - PythonDotenvCLI
     - ComposeGo
+    - Binary
 ```

@@ -5,7 +5,7 @@ use std::os::unix::process::CommandExt;
 
 const USAGE: &str = concat!("\
 usage: ", env!("CARGO_BIN_NAME"), " [--file=DOTENV...] [--replace] [--] command [args...]
-       ", env!("CARGO_BIN_NAME"), " [--file=DOTENV...] [--replace] --print-env [--sorted] [--export]
+       ", env!("CARGO_BIN_NAME"), " [--file=DOTENV...] [--replace] --print-env [--sorted] [--export] [--binary]
        ", env!("CARGO_BIN_NAME"), " [--help] [--version]
 
 Punktum executes a given command with environment variables loaded from a .env file.
@@ -60,6 +60,7 @@ Environemnt variables:
     - NodeJS
     - PythonDotenvCLI
     - ComposeGo
+    - Binary
 
 © 2024 ", env!("CARGO_PKG_AUTHORS"), "
 GitHub: https://github.com/panzi/punktum
@@ -73,6 +74,7 @@ fn exec() -> punktum::Result<()> {
     let mut print_env: bool = false;
     let mut sorted: bool = false;
     let mut export: bool = false;
+    let mut binary: bool = false;
 
     args.next();
     while let Some(arg) = args.next() {
@@ -87,6 +89,8 @@ fn exec() -> punktum::Result<()> {
             sorted = true;
         } else if arg == "--export" {
             export = true;
+        } else if arg == "--binary" {
+            binary = true;
         } else if arg == "-f" || arg == "--file" {
             let Some(file) = args.next() else {
                 let arg = arg.to_string_lossy();
@@ -135,6 +139,11 @@ fn exec() -> punktum::Result<()> {
     }
 
     if print_env {
+        if binary && export {
+            eprintln!("Error: Options --binary and --export are mutually exclusive!");
+            return Err(punktum::ErrorKind::IllegalArgument.into());
+        }
+
         if program.is_some() {
             eprintln!("Error: When --print-env is specified no command is expected!");
             return Err(punktum::ErrorKind::IllegalArgument.into());
@@ -152,41 +161,68 @@ fn exec() -> punktum::Result<()> {
             }
             sorted_env.sort();
 
-            for (key, value) in sorted_env {
-                if export {
-                    write!(out.by_ref(), "export ")?;
+            if binary {
+                punktum::write_iter_binary(&mut out, sorted_env.into_iter())?;
+            } else {
+                for (key, value) in sorted_env {
+                    if export {
+                        write!(out.by_ref(), "export ")?;
+                    }
+                    punktum::write_var(&mut out, key, value)?;
                 }
-                punktum::write_var(&mut out, key, value)?;
             }
         } else {
-            for (key, value) in env {
-                let key = key.to_string_lossy();
-                let value = value.to_string_lossy();
-                if export {
-                    write!(out.by_ref(), "export ")?;
+            if binary {
+                for (key, value) in env {
+                    let key = key.to_string_lossy();
+                    let value = value.to_string_lossy();
+                    punktum::write_var_binary(&mut out, key, value)?;
                 }
-                punktum::write_var(&mut out, key, value)?;
+            } else {
+                for (key, value) in env {
+                    let key = key.to_string_lossy();
+                    let value = value.to_string_lossy();
+                    if export {
+                        write!(out.by_ref(), "export ")?;
+                    }
+                    punktum::write_var(&mut out, key, value)?;
+                }
             }
         }
         return Ok(());
     }
 
-    if let Some(program) = program {
-        let mut cmd = Command::new(program);
-        let cmd = cmd.args(args).env_clear().envs(env);
+    if sorted {
+        eprintln!("Error: Option --sorted is only to be used in combination with --print-env");
+        return Err(punktum::ErrorKind::IllegalArgument.into());
+    }
 
-        #[cfg(target_family = "unix")]
-        return Err(punktum::Error::with_cause(
-            punktum::ErrorKind::ExecError,
-            cmd.exec()));
+    if export {
+        eprintln!("Error: Option --export is only to be used in combination with --print-env");
+        return Err(punktum::ErrorKind::IllegalArgument.into());
+    }
 
-        #[cfg(not(target_family = "unix"))]
-        {
-            let status = cmd.status()?;
-            std::process::exit(status.code().unwrap_or(1));
-        }
-    } else {
-        Err(punktum::ErrorKind::NotEnoughArguments.into())
+    if binary {
+        eprintln!("Error: Option --binary is only to be used in combination with --print-env");
+        return Err(punktum::ErrorKind::IllegalArgument.into());
+    }
+
+    let Some(program) = program else {
+        return Err(punktum::ErrorKind::NotEnoughArguments.into())
+    };
+
+    let mut cmd = Command::new(program);
+    let cmd = cmd.args(args).env_clear().envs(env);
+
+    #[cfg(target_family = "unix")]
+    return Err(punktum::Error::with_cause(
+        punktum::ErrorKind::ExecError,
+        cmd.exec()));
+
+    #[cfg(not(target_family = "unix"))]
+    {
+        let status = cmd.status()?;
+        std::process::exit(status.code().unwrap_or(1));
     }
 }
 

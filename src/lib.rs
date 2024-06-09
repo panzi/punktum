@@ -9,6 +9,7 @@ use std::ffi::OsString;
 use std::path::Path;
 
 pub mod error;
+use dialects::binary::config_binary;
 use dialects::composego::config_composego;
 use dialects::jsdotenv::config_jsdotenv;
 use dialects::nodejs::config_nodejs;
@@ -91,11 +92,23 @@ where P: AsRef<Path> + Clone {
         Dialect::NodeJS => config_nodejs(env, &options),
         Dialect::PythonDotenvCLI => config_pydotenvcli(env, &options),
         Dialect::ComposeGo => config_composego(env, parent, &options),
+        Dialect::Binary => config_binary(env, &options),
     }
 }
 
 pub trait EnvWrite {
     fn write_env(&self, writer: impl std::io::Write) -> std::io::Result<()>;
+}
+
+impl<K, V> EnvWrite for HashMap<K, V>
+where
+    K: AsRef<str>,
+    V: AsRef<str>
+{
+    #[inline]
+    fn write_env(&self, writer: impl std::io::Write) -> std::io::Result<()> {
+        write_iter(writer, self.iter())
+    }
 }
 
 pub fn write_var(mut writer: impl std::io::Write, key: impl AsRef<str>, value: impl AsRef<str>)  -> std::io::Result<()> {
@@ -120,13 +133,17 @@ pub fn write_iter(mut writer: impl std::io::Write, iter: impl Iterator<Item=(imp
     Ok(())
 }
 
-impl<K, V> EnvWrite for HashMap<K, V>
-where
-    K: AsRef<str>,
-    V: AsRef<str>
-{
-    #[inline]
-    fn write_env(&self, writer: impl std::io::Write) -> std::io::Result<()> {
-        write_iter(writer, self.iter())
+pub fn write_var_binary(mut writer: impl std::io::Write, key: impl AsRef<str>, value: impl AsRef<str>)  -> std::io::Result<()> {
+    let key = key.as_ref();
+    let value = value.as_ref();
+    write!(writer, "{key}={value}\0")?;
+
+    Ok(())
+}
+
+pub fn write_iter_binary(mut writer: impl std::io::Write, iter: impl Iterator<Item=(impl AsRef<str>, impl AsRef<str>)>) -> std::io::Result<()> {
+    for (key, value) in iter {
+        write_var_binary(&mut writer, key, value)?;
     }
+    Ok(())
 }
