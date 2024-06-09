@@ -93,3 +93,40 @@ where P: AsRef<Path> + Clone {
         Dialect::ComposeGo => config_composego(env, parent, &options),
     }
 }
+
+pub trait EnvWrite {
+    fn write_env(&self, writer: impl std::io::Write) -> std::io::Result<()>;
+}
+
+pub fn write_var(mut writer: impl std::io::Write, key: impl AsRef<str>, value: impl AsRef<str>)  -> std::io::Result<()> {
+    let key = key.as_ref();
+    let mut value = value.as_ref();
+    write!(writer, "{key}='")?;
+
+    while let Some(index) = value.find('\'') {
+        write!(writer, "{}'\"'\"'", &value[..index])?;
+        value = &value[index + 1..];
+    }
+
+    writeln!(writer, "{value}'")?;
+
+    Ok(())
+}
+
+pub fn write_iter(mut writer: impl std::io::Write, iter: impl Iterator<Item=(impl AsRef<str>, impl AsRef<str>)>) -> std::io::Result<()> {
+    for (key, value) in iter {
+        write_var(&mut writer, key, value)?;
+    }
+    Ok(())
+}
+
+impl<K, V> EnvWrite for HashMap<K, V>
+where
+    K: AsRef<str>,
+    V: AsRef<str>
+{
+    #[inline]
+    fn write_env(&self, writer: impl std::io::Write) -> std::io::Result<()> {
+        write_iter(writer, self.iter())
+    }
+}

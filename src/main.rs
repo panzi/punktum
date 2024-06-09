@@ -1,10 +1,12 @@
-use std::{collections::HashMap, ffi::OsStr, process::Command};
+use std::{collections::HashMap, ffi::OsStr, io::Write, process::Command};
 
 #[cfg(target_family = "unix")]
 use std::os::unix::process::CommandExt;
 
-const USAGE: &str = "\
-usage: punktum [--help] [--file=DOTENV] [--version] [--replace] [--] command [args...]
+const USAGE: &str = concat!("\
+usage: ", env!("CARGO_BIN_NAME"), " [--file=DOTENV...] [--replace] [--] command [args...]
+       ", env!("CARGO_BIN_NAME"), " [--file=DOTENV...] [--replace] --print-env [--sorted] [--export]
+       ", env!("CARGO_BIN_NAME"), " [--help] [--version]
 
 Punktum executes a given command with environment variables loaded from a .env file.
 
@@ -17,6 +19,9 @@ Optional arguments:
   -f DOTENV, --file=DOTENV  File to use instead of .env
                             This option can be passed multiple times. All files are loaded in order.
   -r, --replace             Completely replace all existing environment variables with the ones loaded from the .env file.
+  -p, --print-env           Instead of running a command print the built environment in a syntax compatible to Punktum and bash.
+      --sorted              Sort printed environment variables for reproducible output.
+      --export              Add 'export ' prefix to every printed environment variable.
 
 Environemnt variables:
   DOTENV_CONFIG_PATH=FILE  (default: .env)
@@ -52,14 +57,19 @@ Environemnt variables:
     - NodeJS
     - PythonDotenvCLI
     - ComposeGo
-    - JavaScriptDotenv
-";
+
+© 2024 ", env!("CARGO_PKG_AUTHORS"), "
+GitHub: https://github.com/panzi/punktum
+");
 
 fn exec() -> punktum::Result<()> {
     let mut args = std::env::args_os();
     let mut replace = false;
     let mut program = None;
     let mut files = vec![];
+    let mut print_env: bool = false;
+    let mut sorted: bool = false;
+    let mut export: bool = false;
 
     args.next();
     while let Some(arg) = args.next() {
@@ -68,6 +78,12 @@ fn exec() -> punktum::Result<()> {
             break;
         } else if arg == "-r" || arg == "--replace" {
             replace = true;
+        } else if arg == "-p" || arg == "--print-env" {
+            print_env = true;
+        } else if arg == "--sorted" {
+            sorted = true;
+        } else if arg == "--export" {
+            export = true;
         } else if arg == "-f" || arg == "--file" {
             let Some(file) = args.next() else {
                 let arg = arg.to_string_lossy();
@@ -76,7 +92,7 @@ fn exec() -> punktum::Result<()> {
             };
             files.push(file);
         } else if arg == "-h" || arg == "--help" {
-            println!("{USAGE}");
+            print!("{USAGE}");
             return Ok(());
         } else if arg == "-v" || arg == "--version" {
             println!("{}", env!("CARGO_PKG_VERSION"));
@@ -99,23 +115,60 @@ fn exec() -> punktum::Result<()> {
         }
     }
 
-    if let Some(program) = program {
-        let mut env = if replace {
-            HashMap::new()
-        } else {
-            punktum::system_env().to_hash_map()
-        };
+    let mut env = if replace {
+        HashMap::new()
+    } else {
+        punktum::system_env().to_hash_map()
+    };
 
-        let builder = punktum::build_from_env()?;
+    let builder = punktum::build_from_env()?;
 
-        if files.is_empty() {
-            builder.config_env(&mut env)?;
-        } else {
-            for file in files {
-                builder.path(file).config_env(&mut env)?;
-            }
+    if files.is_empty() {
+        builder.config_env(&mut env)?;
+    } else {
+        for file in files {
+            builder.path(file).config_env(&mut env)?;
+        }
+    }
+
+    if print_env {
+        if program.is_some() {
+            eprintln!("Error: When --print-env is specified no command is expected!");
+            return Err(punktum::ErrorKind::IllegalArgument.into());
         }
 
+        let mut out = std::io::stdout().lock();
+
+        if sorted {
+            let mut sorted_env = vec![];
+
+            for (key, value) in &env {
+                let key = key.to_string_lossy();
+                let value = value.to_string_lossy();
+                sorted_env.push((key, value));
+            }
+            sorted_env.sort();
+
+            for (key, value) in sorted_env {
+                if export {
+                    write!(out.by_ref(), "export ")?;
+                }
+                punktum::write_var(&mut out, key, value)?;
+            }
+        } else {
+            for (key, value) in env {
+                let key = key.to_string_lossy();
+                let value = value.to_string_lossy();
+                if export {
+                    write!(out.by_ref(), "export ")?;
+                }
+                punktum::write_var(&mut out, key, value)?;
+            }
+        }
+        return Ok(());
+    }
+
+    if let Some(program) = program {
         let mut cmd = Command::new(program);
         let cmd = cmd.args(args).env_clear().envs(env);
 
@@ -136,7 +189,7 @@ fn exec() -> punktum::Result<()> {
 
 fn main() {
     if let Err(error) = exec() {
-        eprintln!("{error}");
+        eprintln!("Error: {error}");
         std::process::exit(1);
     }
 }
