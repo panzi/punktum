@@ -31,7 +31,54 @@ with my limited manual test.
 
 I might not implement any more dialects than I have right now.
 
-**TODO:** Describe Punktum dialect.
+Punktum Dialect
+---------------
+
+Details might change.
+
+```plain
+PUNKTUM       := { ( VAR_ASSIGN | VAR_IMPORT ) "\n" }
+VAR_ASSIGN    := NAME "=" [ VALUE ]
+VAR_IMPORT    := NAME
+NAME          := NAME_CHAR { NAME_CHAR }
+NAME_CHAR     := "a"..."z" | "A"..."Z" | "0"..."9" | "_"
+VALUE         := { DOUBLE_QUOTED | SINGLE_QUOTED | UNQUOTED }
+DOUBLE_QUOTED := '"' { ESCAPE_SEQUENCE | NOT('"') | VAR_SUBST } '"'
+SINGLE_QUOTED := "'" { NOT("'") } "'"
+UNQUOTED      := { NOT('"' | "'" | "$" | "\n" | "#") | VAR_SUBST }
+VAR_SUBST     := "$" NAME | "${" NAME [ ":?" | "?" | ":-" | "-" | ":+" | "+" ] VALUE "}"
+COMMENT       := "#" { NOT("\n") }
+```
+
+A single name without `=` imports the value from the parent environment. This way
+you can e.g. use the `punktum` command with the `--replace` option to create a whole
+new environemnt, but still explicitely use certain environment variables from the
+system environment.
+
+A value consists of a sequence of quoted and unquoted strings.
+
+If not quoted, spaces around a value are trimmed. A comment starts with `#` even
+if it touches a word on its left side.
+
+Both single and double quoted strings can be multiline. Variables can be refrenced
+in unquoted and double quoted strings. Escape sequences are only evaluated inside
+of double quoted strings.
+
+The variable substitution syntax is similar to the Unix shell. Variables are only
+read from the current environment, not the parent environemnt. You need to import them
+first to use them. (Should that be changed?)
+
+| Syntax | Description |
+|:-|:-|
+| `${VAR:?MESSAGE}` | Error if `$VAR` is empty or unset. If provided `MESSAGE` will be printed as the error message. |
+| `${VAR?MESSAGE}` | Error if `$VAR` is unset. If provided `MESSAGE` will be printed as the error message. |
+| `${VAR:-DEFAULT}` | Use `DEFAULT` if `$VAR` is empty or unset. |
+| `${VAR-DEFAULT}` | Use `DEFAULT` if `$VAR` is unset. |
+| `${VAR:+DEFAULT}` | Use `DEFAULT` if `$VAR` is not empty. |
+| `${VAR+DEFAULT}` | Use `DEFAULT` if `$VAR` is set. |
+
+The `MESSAGE`/`DEFAULT` part can be anything like in a value, only not a `}` outside
+of a quoted string.
 
 Binary
 ------
