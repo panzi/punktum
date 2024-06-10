@@ -7,6 +7,7 @@ pub enum Dialect {
     JavaScriptDotenv,
     PythonDotenvCLI,
     ComposeGo,
+    GoDotenv,
     Binary,
 }
 
@@ -46,6 +47,9 @@ impl TryFrom<&OsStr> for Dialect {
         } else if value.eq_ignore_ascii_case("composego") ||
                   value.eq_ignore_ascii_case("compose-go") {
             Ok(Dialect::ComposeGo)
+        } else if value.eq_ignore_ascii_case("godotenv") ||
+                  value.eq_ignore_ascii_case("go-dotenv") {
+            Ok(Dialect::GoDotenv)
         } else if value.eq_ignore_ascii_case("binary") {
             Ok(Dialect::Binary)
         } else {

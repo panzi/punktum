@@ -11,6 +11,7 @@ use std::path::Path;
 pub mod error;
 use dialects::binary::config_binary;
 use dialects::composego::config_composego;
+use dialects::godotenv::config_godotenv;
 use dialects::jsdotenv::config_jsdotenv;
 use dialects::nodejs::config_nodejs;
 use dialects::punktum::config_punktum;
@@ -92,6 +93,7 @@ where P: AsRef<Path> + Clone {
         Dialect::NodeJS => config_nodejs(env, &options),
         Dialect::PythonDotenvCLI => config_pydotenvcli(env, &options),
         Dialect::ComposeGo => config_composego(env, parent, &options),
+        Dialect::GoDotenv => config_godotenv(env, &options),
         Dialect::Binary => config_binary(env, &options),
     }
 }
