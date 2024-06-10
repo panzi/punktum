@@ -1,28 +1,14 @@
-use std::{borrow::Cow, fs::File, io::BufReader, num::NonZeroU8, path::Path};
+use std::{borrow::Cow, io::BufRead, num::NonZeroU8, path::Path};
 
-use crate::{env::GetEnv, Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
+use crate::{env::GetEnv, Env, Error, Options, Result, DEBUG_PREFIX};
 
 // trying to be compatible to: https://github.com/compose-spec/compose-go/blob/main/dotenv/parser.go
 // maybe also implement this? https://github.com/joho/godotenv/blob/v1.5.1/parser.go
-pub fn config_composego(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
+pub fn config_composego(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
 
-    let src = match File::open(options.path) {
-        Err(err) => {
-            if options.debug {
-                eprintln!("{DEBUG_PREFIX}{path_str}: {err}");
-            }
-            if options.strict {
-                return Err(Error::with_cause(ErrorKind::IOError, err));
-            }
-            return Ok(());
-        }
-        Ok(file) => {
-            let mut src = String::new();
-            options.encoding.read_to_string(&mut BufReader::new(file), &mut src)?;
-            src
-        }
-    };
+    let mut src = String::new();
+    options.encoding.read_to_string(reader, &mut src)?;
 
     let src = src.replace("\r\n", "\n");
     let mut cutset = &src[..];

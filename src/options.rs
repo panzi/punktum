@@ -74,30 +74,30 @@ where P: AsRef<Path> + Clone {
 
     #[inline]
     pub fn config(&self) -> Result<()> {
-        crate::config_with(&mut SystemEnv(), &SYSTEM_ENV, self)
+        crate::config_with_options(&mut SystemEnv(), &SYSTEM_ENV, self)
     }
 
     #[inline]
     pub fn config_env(&self, env: &mut impl Env) -> Result<()> {
-        crate::config_with(env, &SYSTEM_ENV, self)
+        crate::config_with_options(env, &SYSTEM_ENV, self)
     }
 
     #[inline]
     pub fn config_with_parent(&self, env: &mut impl Env, parent: &impl GetEnv) -> Result<()> {
-        crate::config_with(env, parent, self)
+        crate::config_with_options(env, parent, self)
     }
 
     #[inline]
     pub fn config_new_with_parent(&self, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
         let mut env = HashMap::new();
-        crate::config_with(&mut env, parent, self)?;
+        crate::config_with_options(&mut env, parent, self)?;
         Ok(env)
     }
 
     #[inline]
     pub fn config_new(&self) -> Result<HashMap<OsString, OsString>> {
         let mut env = HashMap::new();
-        crate::config_with(&mut env, &SYSTEM_ENV, self)?;
+        crate::config_with_options(&mut env, &SYSTEM_ENV, self)?;
         Ok(env)
     }
 

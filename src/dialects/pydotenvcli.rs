@@ -1,27 +1,13 @@
 // trying to emulate: https://github.com/venthur/dotenv-cli/blob/master/dotenv_cli/core.py
-use std::{fs::File, io::BufReader, path::Path};
+use std::{io::BufRead, path::Path};
 
-use crate::{Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
+use crate::{Env, Error, Options, Result, DEBUG_PREFIX};
 
-pub fn config_pydotenvcli(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
 
-    let lines = match File::open(options.path) {
-        Err(err) => {
-            if options.debug {
-                eprintln!("{DEBUG_PREFIX}{path_str}: {err}");
-            }
-            if options.strict {
-                return Err(Error::with_cause(ErrorKind::IOError, err));
-            }
-            return Ok(());
-        }
-        Ok(file) => {
-            let mut lines = String::new();
-            options.encoding.read_to_string(&mut BufReader::new(file), &mut lines)?;
-            lines
-        }
-    };
+    let mut lines = String::new();
+    options.encoding.read_to_string(reader, &mut lines)?;
 
     let mut lines = &lines[..];
     let mut value_buf = String::new();

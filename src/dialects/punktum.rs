@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::File, io::BufReader, path::Path};
+use std::{borrow::Cow, io::BufRead, path::Path};
 
 use crate::{env::{EmptyEnv, GetEnv}, error::SourceLocation, Encoding, Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
 
@@ -37,113 +37,130 @@ fn char_at(src: &str, index: usize) -> Option<char> {
     src[index..].chars().next()
 }
 
-pub fn config_punktum(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
-    let file = File::open(options.path);
+pub fn config_punktum(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
 
-    match file {
-        Err(err) => {
+    let mut key = String::new();
+    let mut value = String::new();
+    let mut parser = Parser {
+        path: path_str,
+        lineno: 0,
+        debug: options.debug,
+        strict: options.strict,
+        encoding: options.encoding,
+        linebuf: String::new(),
+        reader,
+    };
+
+    loop {
+        parser.linebuf.clear();
+        parser.lineno += 1;
+        if let Err(err) = options.encoding.read_line(&mut parser.reader, &mut parser.linebuf) {
             if options.debug {
-                eprintln!("{DEBUG_PREFIX}{path_str}: {err}");
+                eprintln!("{DEBUG_PREFIX}{}:{}:1: {err}", parser.path, parser.lineno);
             }
             if options.strict {
-                return Err(Error::with_cause(ErrorKind::IOError, err));
+                return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(parser.lineno, 1)));
+            }
+            if err.kind() == std::io::ErrorKind::InvalidData {
+                continue;
+            } else {
+                return Ok(());
             }
         }
-        Ok(file) => {
-            let mut key = String::new();
-            let mut value = String::new();
-            let mut parser = Parser {
-                path: path_str,
-                lineno: 0,
-                debug: options.debug,
-                strict: options.strict,
-                encoding: options.encoding,
-                linebuf: String::new(),
-                reader: BufReader::new(file),
+
+        if parser.linebuf.is_empty() {
+            break;
+        }
+
+        if parser.linebuf.ends_with("\r\n") {
+            // convert DOS line endings to Unix
+            parser.linebuf.remove(parser.linebuf.len() - 2);
+        }
+
+        let mut index = skip_ws(&parser.linebuf, 0);
+
+        let Some(mut ch) = char_at(&parser.linebuf, index) else {
+            continue;
+        };
+
+        if ch == '#' {
+            continue;
+        }
+
+        let prev_index = index;
+
+        if !is_word(ch) {
+            let column = prev_index + 1;
+            if options.debug {
+                let line = parser.linebuf.trim_end_matches('\n');
+                eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: unexpected {ch:?}, expected variable name: {line}", parser.path, parser.lineno);
+            }
+            if options.strict {
+                return Err(Error::syntax_error(parser.lineno, column));
+            }
+            continue;
+        }
+
+        index = find_word_end(&parser.linebuf, index);
+
+        if index == prev_index {
+            let column = prev_index + 1;
+            if options.debug {
+                let line = parser.linebuf.trim_end_matches('\n');
+                eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: unexpected end of line, expected variable name: {line}", parser.path, parser.lineno);
+            }
+            if options.strict {
+                return Err(Error::syntax_error(parser.lineno, column));
+            }
+            continue;
+        };
+
+        key.clear();
+        key.push_str(&parser.linebuf[prev_index..index]);
+
+        if key.is_empty() {
+            let column = index + 1;
+            if options.debug {
+                let line = parser.linebuf.trim_end_matches('\n');
+                eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected variable name: {line}", parser.path, parser.lineno);
+            }
+            if options.strict {
+                return Err(Error::syntax_error(parser.lineno, column));
+            }
+            continue;
+        }
+
+        index = skip_ws(&parser.linebuf, index);
+
+        {
+            let Some(next_ch) = char_at(&parser.linebuf, index) else {
+                if let Some(value) = parent.get(key.as_ref()) {
+                    options.set_var(env, key.as_ref(), value.as_ref());
+                }
+                continue;
             };
+            ch = next_ch;
+        }
 
-            loop {
-                parser.linebuf.clear();
-                parser.lineno += 1;
-                if let Err(err) = options.encoding.read_line(&mut parser.reader, &mut parser.linebuf) {
-                    if options.debug {
-                        eprintln!("{DEBUG_PREFIX}{}:{}:1: {err}", parser.path, parser.lineno);
-                    }
-                    if options.strict {
-                        return Err(Error::new(ErrorKind::IOError, err, SourceLocation::new(parser.lineno, 1)));
-                    }
-                    if err.kind() == std::io::ErrorKind::InvalidData {
-                        continue;
-                    } else {
-                        return Ok(());
-                    }
-                }
+        if ch == '#' {
+            if let Some(value) = parent.get(key.as_ref()) {
+                options.set_var(env, key.as_ref(), value.as_ref());
+            }
+            continue;
+        }
 
-                if parser.linebuf.is_empty() {
-                    break;
-                }
-
-                if parser.linebuf.ends_with("\r\n") {
-                    // convert DOS line endings to Unix
-                    parser.linebuf.remove(parser.linebuf.len() - 2);
-                }
-
-                let mut index = skip_ws(&parser.linebuf, 0);
-
-                let Some(mut ch) = char_at(&parser.linebuf, index) else {
-                    continue;
-                };
-
-                if ch == '#' {
-                    continue;
-                }
+        if ch != '=' {
+            if !options.strict && key.eq("export") && is_word(ch) {
+                // allow `export FOO=BAR`
+                key.clear();
 
                 let prev_index = index;
-
-                if !is_word(ch) {
-                    let column = prev_index + 1;
-                    if options.debug {
-                        let line = parser.linebuf.trim_end_matches('\n');
-                        eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: unexpected {ch:?}, expected variable name: {line}", parser.path, parser.lineno);
-                    }
-                    if options.strict {
-                        return Err(Error::syntax_error(parser.lineno, column));
-                    }
-                    continue;
-                }
-
                 index = find_word_end(&parser.linebuf, index);
 
-                if index == prev_index {
-                    let column = prev_index + 1;
-                    if options.debug {
-                        let line = parser.linebuf.trim_end_matches('\n');
-                        eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: unexpected end of line, expected variable name: {line}", parser.path, parser.lineno);
-                    }
-                    if options.strict {
-                        return Err(Error::syntax_error(parser.lineno, column));
-                    }
-                    continue;
-                };
-
-                key.clear();
                 key.push_str(&parser.linebuf[prev_index..index]);
 
-                if key.is_empty() {
-                    let column = index + 1;
-                    if options.debug {
-                        let line = parser.linebuf.trim_end_matches('\n');
-                        eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected variable name: {line}", parser.path, parser.lineno);
-                    }
-                    if options.strict {
-                        return Err(Error::syntax_error(parser.lineno, column));
-                    }
-                    continue;
-                }
-
                 index = skip_ws(&parser.linebuf, index);
-
                 {
                     let Some(next_ch) = char_at(&parser.linebuf, index) else {
                         if let Some(value) = parent.get(key.as_ref()) {
@@ -151,7 +168,7 @@ pub fn config_punktum(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<
                         }
                         continue;
                     };
-                    ch = next_ch;
+                    ch = next_ch
                 }
 
                 if ch == '#' {
@@ -162,65 +179,35 @@ pub fn config_punktum(env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<
                 }
 
                 if ch != '=' {
-                    if !options.strict && key.eq("export") && is_word(ch) {
-                        // allow `export FOO=BAR`
-                        key.clear();
-
-                        let prev_index = index;
-                        index = find_word_end(&parser.linebuf, index);
-
-                        key.push_str(&parser.linebuf[prev_index..index]);
-
-                        index = skip_ws(&parser.linebuf, index);
-                        {
-                            let Some(next_ch) = char_at(&parser.linebuf, index) else {
-                                if let Some(value) = parent.get(key.as_ref()) {
-                                    options.set_var(env, key.as_ref(), value.as_ref());
-                                }
-                                continue;
-                            };
-                            ch = next_ch
-                        }
-
-                        if ch == '#' {
-                            if let Some(value) = parent.get(key.as_ref()) {
-                                options.set_var(env, key.as_ref(), value.as_ref());
-                            }
-                            continue;
-                        }
-
-                        if ch != '=' {
-                            let column = index + 1;
-                            if options.debug {
-                                let line = parser.linebuf.trim_end_matches('\n');
-                                eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected '=', actual {ch:?}: {line}", parser.path, parser.lineno);
-                            }
-                            if options.strict {
-                                return Err(Error::syntax_error(parser.lineno, column));
-                            }
-                            continue;
-                        }
-                    } else {
-                        let column = index + 1;
-                        if options.debug {
-                            let line = parser.linebuf.trim_end_matches('\n');
-                            eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected '=', actual {ch:?}: {line}", parser.path, parser.lineno);
-                        }
-                        if options.strict {
-                            return Err(Error::syntax_error(parser.lineno, column));
-                        }
-                        continue;
+                    let column = index + 1;
+                    if options.debug {
+                        let line = parser.linebuf.trim_end_matches('\n');
+                        eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected '=', actual {ch:?}: {line}", parser.path, parser.lineno);
                     }
+                    if options.strict {
+                        return Err(Error::syntax_error(parser.lineno, column));
+                    }
+                    continue;
                 }
-
-                index = skip_ws(&parser.linebuf, index + 1);
-
-                value.clear();
-                parser.parse_value(index, &mut value, env.as_get_env(), false)?;
-
-                options.set_var(env, key.as_ref(), value.as_ref());
+            } else {
+                let column = index + 1;
+                if options.debug {
+                    let line = parser.linebuf.trim_end_matches('\n');
+                    eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: expected '=', actual {ch:?}: {line}", parser.path, parser.lineno);
+                }
+                if options.strict {
+                    return Err(Error::syntax_error(parser.lineno, column));
+                }
+                continue;
             }
         }
+
+        index = skip_ws(&parser.linebuf, index + 1);
+
+        value.clear();
+        parser.parse_value(index, &mut value, env.as_get_env(), false)?;
+
+        options.set_var(env, key.as_ref(), value.as_ref());
     }
 
     Ok(())
@@ -232,7 +219,7 @@ struct Parser<'c> {
     debug: bool,
     strict: bool,
     encoding: Encoding,
-    reader: BufReader<File>,
+    reader: &'c mut dyn BufRead,
     linebuf: String,
 }
 
@@ -275,7 +262,7 @@ impl<'c> Parser<'c> {
 
                 self.linebuf.clear();
                 self.lineno += 1;
-                if let Err(err) = self.encoding.read_line(&mut self.reader, &mut self.linebuf) {
+                if let Err(err) = self.encoding.read_line(self.reader, &mut self.linebuf) {
                     if self.debug {
                         eprintln!("{DEBUG_PREFIX}{}:{}:1: {err}", self.path, self.lineno);
                     }

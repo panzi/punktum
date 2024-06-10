@@ -6,6 +6,9 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::ffi::OsString;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::path::Path;
 
 pub mod error;
@@ -64,19 +67,46 @@ pub fn system_env() -> SystemEnv {
 #[inline]
 pub fn config() -> Result<()> {
     let options = Options::try_from_env()?;
-    config_with(&mut SystemEnv(), &SYSTEM_ENV, &options)
+    config_with_options(&mut SystemEnv(), &SYSTEM_ENV, &options)
 }
 
 #[inline]
 pub fn config_new() -> Result<HashMap<OsString, OsString>> {
     let options = Options::try_from_env()?;
     let mut env = HashMap::new();
-    config_with(&mut env, &SYSTEM_ENV, &options)?;
+    config_with_options(&mut env, &SYSTEM_ENV, &options)?;
     Ok(env)
 }
 
 #[inline]
-pub fn config_with<P>(env: &mut impl Env, parent: &impl GetEnv, options: &Options<P>) -> Result<()>
+pub fn config_with_options<P>(env: &mut impl Env, parent: &impl GetEnv, options: &Options<P>) -> Result<()>
+where P: AsRef<Path> + Clone {
+    let path = options.path.as_ref();
+
+    if path.as_os_str() == "-" {
+        return config_with_reader(&mut std::io::stdin().lock(), env, parent, options);
+    }
+
+    let file = match File::open(path) {
+        Err(err) => {
+            if options.debug {
+                let path_str = path.to_string_lossy();
+                eprintln!("{DEBUG_PREFIX}{path_str}: {err}");
+            }
+            if options.strict {
+                return Err(Error::with_cause(ErrorKind::IOError, err));
+            }
+            return Ok(());
+        },
+        Ok(file) => file,
+    };
+    let mut reader = BufReader::new(file);
+
+    config_with_reader(&mut reader, env, parent, options)
+}
+
+#[inline]
+pub fn config_with_reader<P>(reader: &mut dyn BufRead, env: &mut impl Env, parent: &impl GetEnv, options: &Options<P>) -> Result<()>
 where P: AsRef<Path> + Clone {
     let options = Options {
         override_env: options.override_env,
@@ -88,13 +118,13 @@ where P: AsRef<Path> + Clone {
     };
 
     match options.dialect {
-        Dialect::Punktum => config_punktum(env, parent, &options),
-        Dialect::JavaScriptDotenv => config_jsdotenv(env, &options),
-        Dialect::NodeJS => config_nodejs(env, &options),
-        Dialect::PythonDotenvCLI => config_pydotenvcli(env, &options),
-        Dialect::ComposeGo => config_composego(env, parent, &options),
-        Dialect::GoDotenv => config_godotenv(env, &options),
-        Dialect::Binary => config_binary(env, &options),
+        Dialect::Punktum          => config_punktum(    reader, env, parent, &options),
+        Dialect::JavaScriptDotenv => config_jsdotenv(   reader, env, &options),
+        Dialect::NodeJS           => config_nodejs(     reader, env, &options),
+        Dialect::PythonDotenvCLI  => config_pydotenvcli(reader, env, &options),
+        Dialect::ComposeGo        => config_composego(  reader, env, parent, &options),
+        Dialect::GoDotenv         => config_godotenv(   reader, env, &options),
+        Dialect::Binary           => config_binary(     reader, env, &options),
     }
 }
 

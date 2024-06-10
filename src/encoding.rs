@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, fs::File, io::{BufRead, BufReader, ErrorKind, Read}};
+use std::{ffi::OsStr, io::{BufRead, ErrorKind}};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Encoding {
@@ -13,7 +13,7 @@ pub enum Encoding {
 }
 
 impl Encoding {
-    pub(crate) fn read_line(&self, reader: &mut BufReader<File>, line: &mut String) -> std::io::Result<usize> {
+    pub(crate) fn read_line(&self, reader: &mut dyn BufRead, line: &mut String) -> std::io::Result<usize> {
         match self {
             Encoding::UTF8    => reader.read_line(line),
             Encoding::ASCII   => read_line_ascii(reader, line),
@@ -25,7 +25,7 @@ impl Encoding {
         }
     }
 
-    pub(crate) fn read_to_string(&self, reader: &mut BufReader<File>, buf: &mut String) -> std::io::Result<usize> {
+    pub(crate) fn read_to_string(&self, reader: &mut dyn BufRead, buf: &mut String) -> std::io::Result<usize> {
         match self {
             Encoding::UTF8 => reader.read_to_string(buf),
             Encoding::ASCII => {
@@ -126,7 +126,7 @@ impl Default for Encoding {
     }
 }
 
-fn read_line_ascii(reader: &mut BufReader<File>, line: &mut String) -> std::io::Result<usize> {
+fn read_line_ascii(reader: &mut dyn BufRead, line: &mut String) -> std::io::Result<usize> {
     let mut byte_count = 0;
 
     loop {
@@ -155,7 +155,7 @@ fn read_line_ascii(reader: &mut BufReader<File>, line: &mut String) -> std::io::
     Ok(byte_count)
 }
 
-fn read_line_latin1(reader: &mut BufReader<File>, line: &mut String) -> std::io::Result<usize> {
+fn read_line_latin1(reader: &mut dyn BufRead, line: &mut String) -> std::io::Result<usize> {
     let mut byte_count = 0;
 
     loop {
@@ -180,16 +180,16 @@ fn read_line_latin1(reader: &mut BufReader<File>, line: &mut String) -> std::io:
 }
 
 #[inline]
-fn read_line_utf16be(reader: &mut BufReader<File>, line: &mut String) -> std::io::Result<usize> {
+fn read_line_utf16be(reader: &mut dyn BufRead, line: &mut String) -> std::io::Result<usize> {
     read_line_utf16(reader, line, u16::from_be_bytes)
 }
 
 #[inline]
-fn read_line_utf16le(reader: &mut BufReader<File>, line: &mut String) -> std::io::Result<usize> {
+fn read_line_utf16le(reader: &mut dyn BufRead, line: &mut String) -> std::io::Result<usize> {
     read_line_utf16(reader, line, u16::from_le_bytes)
 }
 
-fn read_line_utf16(reader: &mut BufReader<File>, line: &mut String, decode: fn([u8; 2]) -> u16) -> std::io::Result<usize> {
+fn read_line_utf16(reader: &mut dyn BufRead, line: &mut String, decode: fn([u8; 2]) -> u16) -> std::io::Result<usize> {
     let mut byte_count = 0;
 
     loop {
@@ -238,16 +238,16 @@ fn read_line_utf16(reader: &mut BufReader<File>, line: &mut String, decode: fn([
 }
 
 #[inline]
-fn read_line_utf32be(reader: &mut BufReader<File>, line: &mut String) -> std::io::Result<usize> {
+fn read_line_utf32be(reader: &mut dyn BufRead, line: &mut String) -> std::io::Result<usize> {
     read_line_utf32(reader, line, u32::from_be_bytes)
 }
 
 #[inline]
-fn read_line_utf32le(reader: &mut BufReader<File>, line: &mut String) -> std::io::Result<usize> {
+fn read_line_utf32le(reader: &mut dyn BufRead, line: &mut String) -> std::io::Result<usize> {
     read_line_utf32(reader, line, u32::from_le_bytes)
 }
 
-fn read_line_utf32(reader: &mut BufReader<File>, line: &mut String, decode: fn([u8; 4]) -> u32) -> std::io::Result<usize> {
+fn read_line_utf32(reader: &mut dyn BufRead, line: &mut String, decode: fn([u8; 4]) -> u32) -> std::io::Result<usize> {
     let mut byte_count = 0;
 
     loop {
@@ -275,7 +275,7 @@ fn read_line_utf32(reader: &mut BufReader<File>, line: &mut String, decode: fn([
     Ok(byte_count)
 }
 
-fn read_utf16(reader: &mut BufReader<File>, out: &mut String, decode: fn([u8; 2]) -> u16) -> std::io::Result<usize> {
+fn read_utf16(reader: &mut dyn BufRead, out: &mut String, decode: fn([u8; 2]) -> u16) -> std::io::Result<usize> {
     let mut byte_count = 0;
 
     loop {
@@ -318,7 +318,7 @@ fn read_utf16(reader: &mut BufReader<File>, out: &mut String, decode: fn([u8; 2]
     Ok(byte_count)
 }
 
-fn read_utf32(reader: &mut BufReader<File>, line: &mut String, decode: fn([u8; 4]) -> u32) -> std::io::Result<usize> {
+fn read_utf32(reader: &mut dyn BufRead, line: &mut String, decode: fn([u8; 4]) -> u32) -> std::io::Result<usize> {
     let mut byte_count = 0;
 
     loop {

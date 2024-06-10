@@ -28,6 +28,7 @@ with my limited manual test.
 | GoDotenv | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems like a predecessor to the above. There are many things that aren't or aren't correctly handled by this that are better handeled by the docker-compose version. Both suffer from problems that arise from variable substitution being destinct from string literal and escape sequence parsing and by cheaping out by using regular expressions. |
 | RubyDotenv | Not Implemented | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. |
 | JavaScriptDotenv | Not Implemented | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. |
+| Dotenvy | Not Implemented | Probably won't implement [dotenvy](https://github.com/allan2/dotenvy) support, since it is already a Rust crate. And it is a good dialect with a sane parser. Use that! |
 | Binary | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only used UTF-8. |
 
 I might not implement any more dialects than I have right now.

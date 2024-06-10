@@ -1,28 +1,12 @@
-use std::{fs::File, io::BufReader, path::Path};
+use std::{io::BufRead, path::Path};
 
-use crate::{Env, Error, ErrorKind, Options, Result, DEBUG_PREFIX};
+use crate::{Env, Options, Result};
 
 // Trying to emulate: https://github.com/nodejs/node/blob/v22.x/src/node_dotenv.cc
 // FIXME: doesn't work!
-pub fn config_nodejs(env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
-    let path_str = options.path.to_string_lossy();
-
-    let mut lines = match File::open(options.path) {
-        Err(err) => {
-            if options.debug {
-                eprintln!("{DEBUG_PREFIX}{path_str}: {err}");
-            }
-            if options.strict {
-                return Err(Error::with_cause(ErrorKind::IOError, err));
-            }
-            return Ok(());
-        }
-        Ok(file) => {
-            let mut lines = String::new();
-            options.encoding.read_to_string(&mut BufReader::new(file), &mut lines)?;
-            lines
-        }
-    };
+pub fn config_nodejs(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+    let mut lines = String::new();
+    options.encoding.read_to_string(reader, &mut lines)?;
 
     lines.retain(|ch| ch != '\r');
     let mut content = lines.trim_matches(' ');
