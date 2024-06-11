@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, ffi::{OsStr, OsString}, hash::BuildHasher, sync::Mutex};
+use std::{borrow::Cow, collections::{HashMap, HashSet}, ffi::{OsStr, OsString}, hash::BuildHasher, sync::Mutex};
 
 use crate::{options::{DEFAULT_PATH, IllegalOption, OptionType}, Dialect, Encoding, Error, ErrorKind, Result};
 
@@ -223,6 +223,13 @@ impl EmptyEnv {
     }
 }
 
+impl GetEnv for EmptyEnv {
+    #[inline]
+    fn get<'a>(&'a self, _key: &OsStr) -> Option<Cow<'a, OsStr>> {
+        None
+    }
+}
+
 impl AsRef<EmptyEnv> for EmptyEnv {
     #[inline]
     fn as_ref(&self) -> &Self {
@@ -230,10 +237,227 @@ impl AsRef<EmptyEnv> for EmptyEnv {
     }
 }
 
-impl GetEnv for EmptyEnv {
+impl AsMut<EmptyEnv> for EmptyEnv {
     #[inline]
-    fn get<'a>(&'a self, _key: &OsStr) -> Option<Cow<'a, OsStr>> {
-        None
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+impl<'a> AsRef<dyn GetEnv + 'a> for EmptyEnv where Self: 'a {
+    #[inline]
+    fn as_ref(&self) -> &(dyn GetEnv + 'a) {
+        self
+    }
+}
+
+impl<'a> AsRef<dyn GetEnv + 'a> for SystemEnv where Self: 'a {
+    #[inline]
+    fn as_ref(&self) -> &(dyn GetEnv + 'a) {
+        self
+    }
+}
+
+impl<'a> AsMut<dyn Env + 'a> for SystemEnv where Self: 'a {
+    #[inline]
+    fn as_mut(&mut self) -> &mut (dyn Env + 'a) {
+        self
+    }
+}
+
+impl<'a> AsMut<dyn Env + 'a> for HashMap<OsString, OsString> where Self: 'a {
+    #[inline]
+    fn as_mut(&mut self) -> &mut (dyn Env + 'a) {
+        self
+    }
+}
+
+impl<'a> AsMut<dyn Env + 'a> for HashMap<String, String> where Self: 'a {
+    #[inline]
+    fn as_mut(&mut self) -> &mut (dyn Env + 'a) {
+        self
+    }
+}
+
+impl<'a> AsRef<dyn GetEnv + 'a> for HashMap<OsString, OsString> where Self: 'a {
+    #[inline]
+    fn as_ref(&self) -> &(dyn GetEnv + 'a) {
+        self
+    }
+}
+
+impl<'a> AsRef<dyn GetEnv + 'a> for HashMap<String, String> where Self: 'a {
+    #[inline]
+    fn as_ref(&self) -> &(dyn GetEnv + 'a) {
+        self
+    }
+}
+
+pub struct DenyListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+    env: E,
+    deny_list: HashSet<&'a OsStr>,
+}
+
+impl<'a, E> DenyListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+    #[inline]
+    pub fn new(env: E, deny_list: HashSet<&'a OsStr>) -> Self {
+        Self { env, deny_list }
+    }
+
+    #[inline]
+    pub fn from_slice(env: E, deny_list: &'a [impl AsRef<OsStr>]) -> Self {
+        Self {
+            env,
+            deny_list: deny_list.iter().map(|key| (*key).as_ref()).collect()
+        }
+    }
+
+    #[inline]
+    pub fn from_iter(env: E, deny_list: impl Iterator<Item=&'a OsStr>) -> Self {
+        Self {
+            env,
+            deny_list: deny_list.collect()
+        }
+    }
+
+    #[inline]
+    pub fn env(&self) -> &E {
+        &self.env
+    }
+
+    #[inline]
+    pub fn deny_list(&self) -> &HashSet<&'a OsStr> {
+        &self.deny_list
+    }
+
+    #[inline]
+    pub fn into_env(self) -> E {
+        self.env
+    }
+}
+
+impl<'a, E> GetEnv for DenyListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+    #[inline]
+    fn get<'b>(&'b self, key: &OsStr) -> Option<Cow<'b, OsStr>> {
+        self.env.as_ref().get(key)
+    }
+}
+
+impl<'a, E> Env for DenyListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+    #[inline]
+    fn as_get_env(&self) -> &dyn GetEnv {
+        self
+    }
+
+    #[inline]
+    fn set(&mut self, key: &OsStr, value: &OsStr) {
+        if !self.deny_list.contains(key) {
+            self.env.as_mut().set(key, value);
+        }
+    }
+}
+
+impl<'a, E> AsMut<dyn Env + 'a> for DenyListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
+    #[inline]
+    fn as_mut(&mut self) -> &mut (dyn Env + 'a) {
+        self
+    }
+}
+
+impl<'a, E> AsRef<dyn GetEnv + 'a> for DenyListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
+    #[inline]
+    fn as_ref(&self) -> &(dyn GetEnv + 'a) {
+        self
+    }
+}
+
+pub struct AllowListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+    env: E,
+    allow_list: HashSet<&'a OsStr>,
+}
+
+impl<'a, E> AllowListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+    #[inline]
+    pub fn new(env: E, allow_list: HashSet<&'a OsStr>) -> Self {
+        Self { env, allow_list }
+    }
+
+    #[inline]
+    pub fn from_slice(env: E, allow_list: &'a [impl AsRef<OsStr>]) -> Self {
+        Self {
+            env,
+            allow_list: allow_list.iter().map(|key| (*key).as_ref()).collect()
+        }
+    }
+
+    #[inline]
+    pub fn from_iter(env: E, allow_list: impl Iterator<Item=&'a OsStr>) -> Self {
+        Self {
+            env,
+            allow_list: allow_list.collect()
+        }
+    }
+
+    #[inline]
+    pub fn env(&self) -> &E {
+        &self.env
+    }
+
+    #[inline]
+    pub fn allow_list(&self) -> &HashSet<&'a OsStr> {
+        &self.allow_list
+    }
+
+    #[inline]
+    pub fn into_env(self) -> E {
+        self.env
+    }
+}
+
+impl<'a, E> GetEnv for AllowListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+    #[inline]
+    fn get<'b>(&'b self, key: &OsStr) -> Option<Cow<'b, OsStr>> {
+        self.env.as_ref().get(key)
+    }
+}
+
+impl<'a, E> Env for AllowListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+    #[inline]
+    fn as_get_env(&self) -> &dyn GetEnv {
+        self
+    }
+
+    #[inline]
+    fn set(&mut self, key: &OsStr, value: &OsStr) {
+        if self.allow_list.contains(key) {
+            self.env.as_mut().set(key, value);
+        }
+    }
+}
+
+impl<'a, E> AsMut<dyn Env + 'a> for AllowListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
+    #[inline]
+    fn as_mut(&mut self) -> &mut (dyn Env + 'a) {
+        self
+    }
+}
+
+impl<'a, E> AsRef<dyn GetEnv + 'a> for AllowListEnv<'a, E>
+where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
+    #[inline]
+    fn as_ref(&self) -> &(dyn GetEnv + 'a) {
+        self
     }
 }
 
