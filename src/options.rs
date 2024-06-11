@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, ffi::{OsStr, OsString}, path::Path};
+use std::{borrow::Cow, collections::HashMap, ffi::{OsStr, OsString}, io::BufRead, path::Path};
 
 use crate::{encoding::Encoding, env::{GetEnv, SystemEnv, SYSTEM_ENV}, Dialect, Env, Result, DEBUG_PREFIX};
 
@@ -88,9 +88,21 @@ where P: AsRef<Path> + Clone {
     }
 
     #[inline]
+    pub fn config_with_reader(&self, mut reader: impl BufRead, env: &mut impl Env, parent: &impl GetEnv) -> Result<()> {
+        crate::config_with_reader(&mut reader, env, parent, self)
+    }
+
+    #[inline]
     pub fn config_new_with_parent(&self, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
         let mut env = HashMap::new();
         crate::config_with_options(&mut env, parent, self)?;
+        Ok(env)
+    }
+
+    #[inline]
+    pub fn config_new_with_reader(&self, mut reader: impl BufRead, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
+        let mut env = HashMap::new();
+        crate::config_with_reader(&mut reader, &mut env, parent, self)?;
         Ok(env)
     }
 
@@ -294,8 +306,19 @@ where P: AsRef<Path> + Clone {
     }
 
     #[inline]
+    pub fn config_with_reader(self, reader: impl BufRead, env: &mut impl Env, parent: &impl GetEnv) -> Result<Self> {
+        self.options.config_with_reader(reader, env, parent)?;
+        Ok(self)
+    }
+
+    #[inline]
     pub fn config_new_with_parent(&self, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
         self.options.config_new_with_parent(parent)
+    }
+
+    #[inline]
+    pub fn config_new_with_reader(&self, reader: impl BufRead, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
+        self.options.config_new_with_reader(reader, parent)
     }
 
     #[inline]

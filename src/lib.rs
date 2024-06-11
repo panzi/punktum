@@ -110,11 +110,11 @@ pub fn config_with_reader<P>(reader: &mut dyn BufRead, env: &mut impl Env, paren
 where P: AsRef<Path> + Clone {
     let options = Options {
         override_env: options.override_env,
-        strict: options.strict,
-        debug: options.debug,
-        encoding: options.encoding,
-        dialect: options.dialect,
-        path: options.path.as_ref(),
+        strict:       options.strict,
+        debug:        options.debug,
+        encoding:     options.encoding,
+        dialect:      options.dialect,
+        path:         options.path.as_ref(),
     };
 
     match options.dialect {
