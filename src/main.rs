@@ -1,7 +1,9 @@
-use std::{collections::HashMap, ffi::OsStr, io::Write, process::Command};
+use std::{collections::HashMap, env::ArgsOs, ffi::{OsStr, OsString}, io::Write, process::Command};
 
 #[cfg(target_family = "unix")]
 use std::os::unix::process::CommandExt;
+
+use punktum::{env::parse_bool, options::{IllegalOption, OptionType}, Dialect, Encoding, Error, ErrorKind};
 
 const USAGE: &str = concat!("\
 usage: ", env!("CARGO_BIN_NAME"), " [--file=DOTENV...] [--replace] [--] command [args...]
@@ -16,15 +18,21 @@ Positional arguments:
 Optional arguments:
   -h, --help                Print this help message and exit.
   -v, --version             Print program's version and exit.
-  -f DOTENV, --file=DOTENV  File to use instead of .env
+  -f PATH, --file=PATH      File to use instead of \".env\"
                             This option can be passed multiple times.
                             All files are loaded in order.
+                            Pass \"-\" to read from stdin.
   -r, --replace             Completely replace all existing environment variables with
                             the ones loaded from the .env file.
   -p, --print-env           Instead of running a command print the built environment
                             in a syntax compatible to Punktum and bash.
       --sorted              Sort printed environment variables for reproducible output.
       --export              Add 'export ' prefix to every printed environment variable.
+      --strict=bool         Overwrite DOTENV_CONFIG_STRICT
+      --debug=bool          Overwrite DOTENV_CONFIG_DEBUG
+      --override=bool       Overwrite DOTENV_CONFIG_OVERRIDE
+      --encoding=ENCODING   Overwrite DOTENV_CONFIG_ENCODING
+      --dialect=DIALECT     Overwrite DOTENV_CONFIG_DIALECT
 
 Environemnt variables:
   DOTENV_CONFIG_PATH=FILE  (default: .env)
@@ -66,6 +74,54 @@ Environemnt variables:
 GitHub: https://github.com/panzi/punktum
 ");
 
+fn parse_bool_option(option: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> punktum::Result<bool> {
+    let value = value.as_ref();
+    let Some(value) = parse_bool(value) else {
+        return Err(Error::with_cause(
+            ErrorKind::OptionsParseError,
+            IllegalOption::new(
+                option.as_ref().to_owned(),
+                value.into(),
+                OptionType::Bool)));
+    };
+    Ok(value)
+}
+
+fn parse_encoding_option(option: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> punktum::Result<Encoding> {
+    let value = value.as_ref();
+    let Ok(value) = Encoding::try_from(value) else {
+        return Err(Error::with_cause(
+            ErrorKind::OptionsParseError,
+            IllegalOption::new(
+                option.as_ref().to_owned(),
+                value.into(),
+                OptionType::Encoding)));
+    };
+    Ok(value)
+}
+
+fn parse_dialect_option(option: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> punktum::Result<Dialect> {
+    let value = value.as_ref();
+    let Ok(value) = Dialect::try_from(value) else {
+        return Err(Error::with_cause(
+            ErrorKind::OptionsParseError,
+            IllegalOption::new(
+                option.as_ref().to_owned(),
+                value.into(),
+                OptionType::Dialect)));
+    };
+    Ok(value)
+}
+
+fn require_arg(option: &OsStr, args: &mut ArgsOs) -> punktum::Result<OsString> {
+    let Some(value) = args.next() else {
+        let option = option.to_string_lossy();
+        eprintln!("Error: {option} requires an argument");
+        return Err(punktum::ErrorKind::IllegalArgument.into());
+    };
+    Ok(value)
+}
+
 fn exec() -> punktum::Result<()> {
     let mut args = std::env::args_os();
     let mut replace = false;
@@ -75,6 +131,11 @@ fn exec() -> punktum::Result<()> {
     let mut sorted: bool = false;
     let mut export: bool = false;
     let mut binary: bool = false;
+    let mut debug: Option<bool> = None;
+    let mut strict: Option<bool> = None;
+    let mut override_env: Option<bool> = None;
+    let mut encoding: Option<Encoding> = None;
+    let mut dialect: Option<Dialect> = None;
 
     args.next();
     while let Some(arg) = args.next() {
@@ -92,12 +153,22 @@ fn exec() -> punktum::Result<()> {
         } else if arg == "--binary" {
             binary = true;
         } else if arg == "-f" || arg == "--file" {
-            let Some(file) = args.next() else {
-                let arg = arg.to_string_lossy();
-                eprintln!("Error: {arg} requires an argument");
-                return Err(punktum::ErrorKind::IllegalArgument.into());
-            };
-            files.push(file);
+            files.push(require_arg(&arg, &mut args)?);
+        } else if arg == "--override" {
+            let value = require_arg(&arg, &mut args)?;
+            override_env = Some(parse_bool_option(&arg, &value)?);
+        } else if arg == "--strict" {
+            let value = require_arg(&arg, &mut args)?;
+            strict = Some(parse_bool_option(&arg, &value)?);
+        } else if arg == "--debug" {
+            let value = require_arg(&arg, &mut args)?;
+            debug = Some(parse_bool_option(&arg, &value)?);
+        } else if arg == "--encoding" {
+            let value = require_arg(&arg, &mut args)?;
+            encoding = Some(parse_encoding_option(&arg, &value)?);
+        } else if arg == "--dialect" {
+            let value = require_arg(&arg, &mut args)?;
+            dialect = Some(parse_dialect_option(&arg, &value)?);
         } else if arg == "-h" || arg == "--help" {
             print!("{USAGE}");
             return Ok(());
@@ -112,6 +183,16 @@ fn exec() -> punktum::Result<()> {
 
             if str_arg.starts_with("--file=") {
                 files.push(OsStr::new(&str_arg[7..]).into());
+            } else if str_arg.starts_with("--override=") {
+                override_env = Some(parse_bool_option(&str_arg[..10], &str_arg[11..])?);
+            } else if str_arg.starts_with("--strict=") {
+                strict = Some(parse_bool_option(&str_arg[..8], &str_arg[9..])?);
+            } else if str_arg.starts_with("--debug=") {
+                debug = Some(parse_bool_option(&str_arg[..7], &str_arg[8..])?);
+            } else if str_arg.starts_with("--encoding=") {
+                encoding = Some(parse_encoding_option(&str_arg[..10], &str_arg[11..])?);
+            } else if str_arg.starts_with("--dialect=") {
+                dialect = Some(parse_dialect_option(&str_arg[..9], &str_arg[10..])?);
             } else if str_arg.starts_with('-') {
                 eprintln!("Error: illegal argument: {arg:?}");
                 return Err(punktum::ErrorKind::IllegalArgument.into());
@@ -128,7 +209,27 @@ fn exec() -> punktum::Result<()> {
         punktum::system_env().to_hash_map()
     };
 
-    let builder = punktum::build_from_env()?;
+    let mut builder = punktum::build_from_env()?;
+
+    if let Some(debug) = debug {
+        builder = builder.debug(debug);
+    }
+
+    if let Some(strict) = strict {
+        builder = builder.strict(strict);
+    }
+
+    if let Some(override_env) = override_env {
+        builder = builder.override_env(override_env);
+    }
+
+    if let Some(encoding) = encoding {
+        builder = builder.encoding(encoding);
+    }
+
+    if let Some(dialect) = dialect {
+        builder = builder.dialect(dialect);
+    }
 
     if files.is_empty() {
         builder.config_env(&mut env)?;

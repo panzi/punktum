@@ -179,7 +179,7 @@ impl IllegalOption {
 
 impl std::fmt::Display for IllegalOption {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} option has illegal value: {:?}={:?}", self.option_type, self.name, self.value)
+        write!(f, "{} option has illegal value: {}={:?}", self.option_type, self.name.to_string_lossy(), self.value)
     }
 }
 

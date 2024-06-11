@@ -72,23 +72,33 @@ pub trait GetEnv {
     fn get_bool(&self, key: &OsStr, default_value: bool) -> Result<bool> {
         if let Some(value) = self.get(key) {
             let value: &OsStr = &value;
-            if value.eq_ignore_ascii_case("true") || value == "1" {
-                Ok(true)
-            } else if value.eq_ignore_ascii_case("false") || value == "0" {
-                Ok(false)
-            } else if value.is_empty() {
-                Ok(default_value)
-            } else {
-                Err(Error::with_cause(
+            if value.is_empty() {
+                return Ok(default_value);
+            }
+
+            let Some(value) = parse_bool(value) else {
+                return Err(Error::with_cause(
                     ErrorKind::OptionsParseError,
                     IllegalOption::new(
                         key.to_owned(),
                         value.into(),
-                        OptionType::Bool)))
-            }
+                        OptionType::Bool)));
+            };
+
+            Ok(value)
         } else {
             Ok(default_value)
         }
+    }
+}
+
+pub fn parse_bool(value: &OsStr) -> Option<bool> {
+    if value.eq_ignore_ascii_case("true") || value == "1" {
+        Some(true)
+    } else if value.eq_ignore_ascii_case("false") || value == "0" {
+        Some(false)
+    } else {
+        None
     }
 }
 
