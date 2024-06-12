@@ -3,7 +3,6 @@ use std::{io::BufRead, path::Path};
 use crate::{Env, Options, Result};
 
 // Trying to emulate: https://github.com/nodejs/node/blob/v22.x/src/node_dotenv.cc
-// FIXME: doesn't work!
 pub fn config_nodejs(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
     let mut lines = String::new();
     options.encoding.read_to_string(reader, &mut lines)?;
@@ -36,8 +35,6 @@ pub fn config_nodejs(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Opti
         if key.starts_with("export ") {
             key = &key[7..];
         }
-        // eprintln!(">>> key: {key:?}");
-        // eprintln!(">>> rest: {:?}...", &content[..6.min(content.len())]);
 
         // SAFETY: Content is guaranteed to have at least one character
         if content.is_empty() {

@@ -8,6 +8,7 @@ pub enum Dialect {
     PythonDotenvCLI,
     ComposeGo,
     GoDotenv,
+    RubyDotenv,
     Binary,
 }
 
@@ -50,6 +51,9 @@ impl TryFrom<&OsStr> for Dialect {
         } else if value.eq_ignore_ascii_case("godotenv") ||
                   value.eq_ignore_ascii_case("go-dotenv") {
             Ok(Dialect::GoDotenv)
+        } else if value.eq_ignore_ascii_case("rubydotenv") ||
+                  value.eq_ignore_ascii_case("ruby-dotenv") {
+            Ok(Dialect::RubyDotenv)
         } else if value.eq_ignore_ascii_case("binary") {
             Ok(Dialect::Binary)
         } else {

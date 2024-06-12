@@ -19,6 +19,7 @@ use dialects::jsdotenv::config_jsdotenv;
 use dialects::nodejs::config_nodejs;
 use dialects::punktum::config_punktum;
 use dialects::pydotenvcli::config_pydotenvcli;
+use dialects::rbdotenv::config_rbdotenv;
 use env::SYSTEM_ENV;
 pub use error::Error;
 pub use error::ErrorKind;
@@ -124,6 +125,7 @@ where P: AsRef<Path> + Clone {
         Dialect::PythonDotenvCLI  => config_pydotenvcli(reader, env, &options),
         Dialect::ComposeGo        => config_composego(  reader, env, parent, &options),
         Dialect::GoDotenv         => config_godotenv(   reader, env, &options),
+        Dialect::RubyDotenv       => config_rbdotenv(   reader, env, &options),
         Dialect::Binary           => config_binary(     reader, env, &options),
     }
 }

@@ -35,7 +35,7 @@ Optional arguments:
       --dialect=DIALECT     Overwrite DOTENV_CONFIG_DIALECT
 
 Environemnt variables:
-  DOTENV_CONFIG_PATH=FILE  (default: .env)
+  DOTENV_CONFIG_PATH=FILE  (default: \".env\")
     File to use instead of .env. This can be overwritten by --file.
 
   DOTENV_CONFIG_STRICT=true|false  (default: true)
@@ -68,6 +68,8 @@ Environemnt variables:
     - NodeJS
     - PythonDotenvCLI
     - ComposeGo
+    - GoDotenv
+    - RubyDotenv
     - Binary
 
 © 2024 ", env!("CARGO_PKG_AUTHORS"), "
@@ -181,18 +183,18 @@ fn exec() -> punktum::Result<()> {
                 break;
             };
 
-            if str_arg.starts_with("--file=") {
-                files.push(OsStr::new(&str_arg[7..]).into());
-            } else if str_arg.starts_with("--override=") {
-                override_env = Some(parse_bool_option(&str_arg[..10], &str_arg[11..])?);
-            } else if str_arg.starts_with("--strict=") {
-                strict = Some(parse_bool_option(&str_arg[..8], &str_arg[9..])?);
-            } else if str_arg.starts_with("--debug=") {
-                debug = Some(parse_bool_option(&str_arg[..7], &str_arg[8..])?);
-            } else if str_arg.starts_with("--encoding=") {
-                encoding = Some(parse_encoding_option(&str_arg[..10], &str_arg[11..])?);
-            } else if str_arg.starts_with("--dialect=") {
-                dialect = Some(parse_dialect_option(&str_arg[..9], &str_arg[10..])?);
+            if let Some(file) = str_arg.strip_prefix("--file=") {
+                files.push(OsStr::new(file).into());
+            } else if let Some(value) = str_arg.strip_prefix("--override=") {
+                override_env = Some(parse_bool_option("--override", value)?);
+            } else if let Some(value) = str_arg.strip_prefix("--strict=") {
+                strict = Some(parse_bool_option("--strict", value)?);
+            } else if let Some(value) = str_arg.strip_prefix("--debug=") {
+                debug = Some(parse_bool_option("--debug", value)?);
+            } else if let Some(value) = str_arg.strip_prefix("--encoding=") {
+                encoding = Some(parse_encoding_option("--encoding", value)?);
+            } else if let Some(value) = str_arg.strip_prefix("--dialect=") {
+                dialect = Some(parse_dialect_option("--dialect", value)?);
             } else if str_arg.starts_with('-') {
                 eprintln!("Error: illegal argument: {arg:?}");
                 return Err(punktum::ErrorKind::IllegalArgument.into());
@@ -272,22 +274,20 @@ fn exec() -> punktum::Result<()> {
                     punktum::write_var(&mut out, key, value)?;
                 }
             }
+        } else if binary {
+            for (key, value) in env {
+                let key = key.to_string_lossy();
+                let value = value.to_string_lossy();
+                punktum::write_var_binary(&mut out, key, value)?;
+            }
         } else {
-            if binary {
-                for (key, value) in env {
-                    let key = key.to_string_lossy();
-                    let value = value.to_string_lossy();
-                    punktum::write_var_binary(&mut out, key, value)?;
+            for (key, value) in env {
+                let key = key.to_string_lossy();
+                let value = value.to_string_lossy();
+                if export {
+                    write!(out.by_ref(), "export ")?;
                 }
-            } else {
-                for (key, value) in env {
-                    let key = key.to_string_lossy();
-                    let value = value.to_string_lossy();
-                    if export {
-                        write!(out.by_ref(), "export ")?;
-                    }
-                    punktum::write_var(&mut out, key, value)?;
-                }
+                punktum::write_var(&mut out, key, value)?;
             }
         }
         return Ok(());

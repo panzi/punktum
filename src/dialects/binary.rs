@@ -16,10 +16,8 @@ pub fn config_binary(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Opti
             break;
         }
 
-        let line;
-
-        if buf.ends_with(b"\0") {
-            line = &buf[..buf.len() - 1];
+        let line = if buf.ends_with(b"\0") {
+            &buf[..buf.len() - 1]
         } else {
             let column = byte_count + 1;
             if options.debug {
@@ -29,8 +27,8 @@ pub fn config_binary(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Opti
             if options.strict {
                 return Err(Error::syntax_error(lineno, column));
             }
-            line = &buf;
-        }
+            &buf
+        };
 
         let Some(equals) = line.iter().cloned().position(|byte| byte == b'=') else {
             let column = byte_count + 1;

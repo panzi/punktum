@@ -424,10 +424,8 @@ impl<'a> Parser<'a> {
                             let default = self.expand_variables(default, env)?;
                             buf.push_str(&default);
                         }
-                    } else {
-                        if let Some(value) = value {
-                            buf.push_str(value.to_string_lossy().as_ref());
-                        }
+                    } else if let Some(value) = value {
+                        buf.push_str(value.to_string_lossy().as_ref());
                     }
 
                     if !src.starts_with('}') {

@@ -207,7 +207,7 @@ impl<'a> Parser<'a> {
             let value = src[..index].trim_matches(quote);
 
             if quote == '"' {
-                let res = self.expand_variables(&expand_escapes(&value), env)?;
+                let res = self.expand_variables(&expand_escapes(value), env)?;
                 return Ok((res, &src[index + ch.len_utf8()..]));
             }
 

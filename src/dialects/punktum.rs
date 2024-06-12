@@ -285,6 +285,7 @@ impl<'c> Parser<'c> {
                 break;
             };
 
+            #[allow(clippy::if_same_then_else)]
             if ch == '"' || ch == '\'' {
                 let quote = ch;
                 index += 1;
@@ -824,10 +825,8 @@ impl<'c> Parser<'c> {
                 } else {
                     index = self.parse_value(index, &mut NullStringBuffer(), &EmptyEnv(), true)?;
                 }
-            } else {
-                if let Some(value) = value {
-                    buf.push_str(value.to_string_lossy().as_ref());
-                }
+            } else if let Some(value) = value {
+                buf.push_str(value.to_string_lossy().as_ref());
             }
 
             let tail = &self.linebuf[index..];
@@ -845,11 +844,9 @@ impl<'c> Parser<'c> {
                 index = end_index;
                 buf.push_str(&self.linebuf[var_start_index..index]);
             }
-        } else {
-            if let Some(value) = value {
-                // TODO: don't use lossy when strict?
-                buf.push_str(value.to_string_lossy().as_ref());
-            }
+        } else if let Some(value) = value {
+            // TODO: don't use lossy when strict?
+            buf.push_str(value.to_string_lossy().as_ref());
         }
 
         Ok(index)
