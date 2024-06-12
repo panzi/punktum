@@ -293,6 +293,33 @@ impl<'a> AsRef<dyn GetEnv + 'a> for HashMap<String, String> where Self: 'a {
     }
 }
 
+// XXX: Why do I need this?
+impl<T: GetEnv> GetEnv for &T {
+    #[inline]
+    fn get<'a>(&'a self, key: &OsStr) -> Option<Cow<'a, OsStr>> {
+        (**self).get(key)
+    }
+}
+
+impl<T: GetEnv> GetEnv for &mut T {
+    #[inline]
+    fn get<'a>(&'a self, key: &OsStr) -> Option<Cow<'a, OsStr>> {
+        (**self).get(key)
+    }
+}
+
+impl<T: Env> Env for &mut T where Self: GetEnv {
+    #[inline]
+    fn as_get_env(&self) -> &dyn GetEnv {
+        (**self).as_get_env()
+    }
+
+    #[inline]
+    fn set(&mut self, key: &OsStr, value: &OsStr) {
+        (**self).set(key, value);
+    }
+}
+
 pub struct DenyListEnv<'a, E> {
     env: E,
     deny_list: HashSet<&'a OsStr>,
@@ -337,15 +364,15 @@ impl<'a, E> DenyListEnv<'a, E> {
 }
 
 impl<'a, E> GetEnv for DenyListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+where E: GetEnv {
     #[inline]
     fn get<'b>(&'b self, key: &OsStr) -> Option<Cow<'b, OsStr>> {
-        self.env.as_ref().get(key)
+        self.env.get(key)
     }
 }
 
 impl<'a, E> Env for DenyListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+where E: Env {
     #[inline]
     fn as_get_env(&self) -> &dyn GetEnv {
         self
@@ -354,7 +381,7 @@ where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
     #[inline]
     fn set(&mut self, key: &OsStr, value: &OsStr) {
         if !self.deny_list.contains(key) {
-            self.env.as_mut().set(key, value);
+            self.env.set(key, value);
         }
     }
 }
@@ -369,22 +396,6 @@ impl<'a, E> AsMut<DenyListEnv<'a, E>> for DenyListEnv<'a, E> {
 impl<'a, E> AsRef<DenyListEnv<'a, E>> for DenyListEnv<'a, E> {
     #[inline]
     fn as_ref(&self) -> &DenyListEnv<'a, E> {
-        self
-    }
-}
-
-impl<'a, E> AsMut<dyn Env + 'a> for DenyListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
-    #[inline]
-    fn as_mut(&mut self) -> &mut (dyn Env + 'a) {
-        self
-    }
-}
-
-impl<'a, E> AsRef<dyn GetEnv + 'a> for DenyListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
-    #[inline]
-    fn as_ref(&self) -> &(dyn GetEnv + 'a) {
         self
     }
 }
@@ -433,15 +444,15 @@ impl<'a, E> AllowListEnv<'a, E> {
 }
 
 impl<'a, E> GetEnv for AllowListEnv<'a, E>
-where E: AsRef<dyn GetEnv> {
+where E: GetEnv {
     #[inline]
     fn get<'b>(&'b self, key: &OsStr) -> Option<Cow<'b, OsStr>> {
-        self.env.as_ref().get(key)
+        self.env.get(key)
     }
 }
 
 impl<'a, E> Env for AllowListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+where E: Env {
     #[inline]
     fn as_get_env(&self) -> &dyn GetEnv {
         self
@@ -450,7 +461,7 @@ where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
     #[inline]
     fn set(&mut self, key: &OsStr, value: &OsStr) {
         if self.allow_list.contains(key) {
-            self.env.as_mut().set(key, value);
+            self.env.set(key, value);
         }
     }
 }
@@ -465,22 +476,6 @@ impl<'a, E> AsMut<AllowListEnv<'a, E>> for AllowListEnv<'a, E> {
 impl<'a, E> AsRef<AllowListEnv<'a, E>> for AllowListEnv<'a, E> {
     #[inline]
     fn as_ref(&self) -> &AllowListEnv<'a, E> {
-        self
-    }
-}
-
-impl<'a, E> AsMut<dyn Env + 'a> for AllowListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
-    #[inline]
-    fn as_mut(&mut self) -> &mut (dyn Env + 'a) {
-        self
-    }
-}
-
-impl<'a, E> AsRef<dyn GetEnv + 'a> for AllowListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
-    #[inline]
-    fn as_ref(&self) -> &(dyn GetEnv + 'a) {
         self
     }
 }

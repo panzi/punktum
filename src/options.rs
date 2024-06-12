@@ -79,7 +79,7 @@ where P: AsRef<Path> {
     }
 
     #[inline]
-    pub fn config_env(&self, env: &mut dyn Env) -> Result<()> {
+    pub fn config_env(&self, env: &mut impl Env) -> Result<()> {
         crate::config_with_options(env, &SYSTEM_ENV, self)
     }
 
@@ -297,7 +297,7 @@ where P: AsRef<Path> {
     }
 
     #[inline]
-    pub fn config_env(self, env: &mut dyn Env) -> Result<Self> {
+    pub fn config_env(self, env: &mut impl Env) -> Result<Self> {
         self.options.config_env(env)?;
         Ok(self)
     }

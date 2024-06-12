@@ -80,7 +80,7 @@ pub fn config_new() -> Result<HashMap<OsString, OsString>> {
 }
 
 #[inline]
-pub fn config_with_options<P>(env: &mut dyn Env, parent: &impl GetEnv, options: &Options<P>) -> Result<()>
+pub fn config_with_options<P>(env: &mut impl Env, parent: &impl GetEnv, options: &Options<P>) -> Result<()>
 where P: AsRef<Path> {
     let path = options.path.as_ref();
 
@@ -107,7 +107,7 @@ where P: AsRef<Path> {
 }
 
 #[inline]
-pub fn config_with_reader<P>(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &impl GetEnv, options: &Options<P>) -> Result<()>
+pub fn config_with_reader<P>(reader: &mut dyn BufRead, env: &mut impl Env, parent: &impl GetEnv, options: &Options<P>) -> Result<()>
 where P: AsRef<Path> {
     let options = Options {
         override_env: options.override_env,

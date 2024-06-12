@@ -1,9 +1,9 @@
-use std::{collections::HashMap, env::ArgsOs, ffi::{OsStr, OsString}, io::Write, process::Command};
+use std::{collections::HashMap, env::ArgsOs, ffi::{OsStr, OsString}, io::Write, path::Path, process::Command};
 
 #[cfg(target_family = "unix")]
 use std::os::unix::process::CommandExt;
 
-use punktum::{env::parse_bool, options::{IllegalOption, OptionType}, Dialect, Encoding, Error, ErrorKind};
+use punktum::{env::{parse_bool, AllowListEnv, DenyListEnv}, options::{Builder, IllegalOption, OptionType}, Dialect, Encoding, Env, Error, ErrorKind};
 
 const USAGE: &str = concat!("\
 usage: ", env!("CARGO_BIN_NAME"), " [--file=DOTENV...] [--replace] [--] command [args...]
@@ -22,8 +22,8 @@ Optional arguments:
                             This option can be passed multiple times.
                             All files are loaded in order.
                             Pass \"-\" to read from stdin.
-  -r, --replace             Completely replace all existing environment variables with
-                            the ones loaded from the .env file.
+  -r, --replace             Completely replace the environment with the one loaded
+                            from the .env file.
   -p, --print-env           Instead of running a command print the built environment
                             in a syntax compatible to Punktum and bash.
       --sorted              Sort printed environment variables for reproducible output.
@@ -75,6 +75,57 @@ Environemnt variables:
 © 2024 ", env!("CARGO_PKG_AUTHORS"), "
 GitHub: https://github.com/panzi/punktum
 ");
+
+fn config_with_lists<P>(env: &mut impl Env, allow_list: &Option<Vec<OsString>>, deny_list: &Option<Vec<OsString>>, files: &[impl AsRef<OsStr>], builder: &Builder<P>) -> punktum::Result<()>
+where P: AsRef<Path> {
+    if let Some(allow_list) = allow_list {
+        let mut env = AllowListEnv::from_slice(env, allow_list);
+        return next(&mut env, deny_list, files, builder);
+    } else {
+        return next(env, deny_list, files, builder);
+    }
+
+    fn next<P>(env: &mut impl Env, deny_list: &Option<Vec<OsString>>, files: &[impl AsRef<OsStr>], builder: &Builder<P>) -> punktum::Result<()>
+    where P: AsRef<Path> {
+        if let Some(deny_list) = deny_list {
+            let mut env = DenyListEnv::from_slice(env, deny_list);
+            return next(&mut env, files, builder);
+        } else {
+            return next(env, files, builder);
+        }
+
+        fn next<P>(env: &mut impl Env, files: &[impl AsRef<OsStr>], builder: &Builder<P>) -> punktum::Result<()>
+        where P: AsRef<Path> {
+            if files.is_empty() {
+                builder.options().config_env(env)?;
+            } else {
+                for file in files {
+                    builder.path(file.as_ref()).config_env(env)?;
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+fn parse_comma_list(option: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> punktum::Result<Vec<OsString>> {
+    let value = value.as_ref();
+    let Some(value) = value.to_str() else {
+        return Err(Error::with_cause(
+            ErrorKind::OptionsParseError,
+            IllegalOption::new(
+                option.as_ref().to_owned(),
+                value.into(),
+                OptionType::CommaList)));
+    };
+
+    let value = value.trim();
+    if value.is_empty() {
+        return Ok(vec![]);
+    }
+
+    Ok(value.split(',').map(|word| OsString::from(word.trim())).collect())
+}
 
 fn parse_bool_option(option: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> punktum::Result<bool> {
     let value = value.as_ref();
@@ -138,6 +189,8 @@ fn exec() -> punktum::Result<()> {
     let mut override_env: Option<bool> = None;
     let mut encoding: Option<Encoding> = None;
     let mut dialect: Option<Dialect> = None;
+    let mut allow_list: Option<Vec<OsString>> = None;
+    let mut deny_list: Option<Vec<OsString>> = None;
 
     args.next();
     while let Some(arg) = args.next() {
@@ -171,6 +224,12 @@ fn exec() -> punktum::Result<()> {
         } else if arg == "--dialect" {
             let value = require_arg(&arg, &mut args)?;
             dialect = Some(parse_dialect_option(&arg, &value)?);
+        } else if arg == "--allow" {
+            let value = require_arg(&arg, &mut args)?;
+            allow_list = Some(parse_comma_list(&arg, &value)?);
+        } else if arg == "--deny" {
+            let value = require_arg(&arg, &mut args)?;
+            deny_list = Some(parse_comma_list(&arg, &value)?);
         } else if arg == "-h" || arg == "--help" {
             print!("{USAGE}");
             return Ok(());
@@ -195,6 +254,10 @@ fn exec() -> punktum::Result<()> {
                 encoding = Some(parse_encoding_option("--encoding", value)?);
             } else if let Some(value) = str_arg.strip_prefix("--dialect=") {
                 dialect = Some(parse_dialect_option("--dialect", value)?);
+            } else if let Some(value) = str_arg.strip_prefix("--allow=") {
+                allow_list = Some(parse_comma_list("--allow", value)?);
+            } else if let Some(value) = str_arg.strip_prefix("--deny=") {
+                deny_list = Some(parse_comma_list("--deny", value)?);
             } else if str_arg.starts_with('-') {
                 eprintln!("Error: illegal argument: {arg:?}");
                 return Err(punktum::ErrorKind::IllegalArgument.into());
@@ -233,13 +296,7 @@ fn exec() -> punktum::Result<()> {
         builder = builder.dialect(dialect);
     }
 
-    if files.is_empty() {
-        builder.config_env(&mut env)?;
-    } else {
-        for file in files {
-            builder.path(file).config_env(&mut env)?;
-        }
-    }
+    config_with_lists(&mut env, &allow_list, &deny_list, &files, &builder)?;
 
     if print_env {
         if binary && export {
