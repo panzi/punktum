@@ -3,8 +3,7 @@ use std::{borrow::Cow, collections::HashMap, ffi::{OsStr, OsString}, io::BufRead
 use crate::{encoding::Encoding, env::{GetEnv, SystemEnv, SYSTEM_ENV}, Dialect, Env, Result, DEBUG_PREFIX};
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Options<P=&'static str>
-where P: AsRef<Path> + Clone {
+pub struct Options<P=&'static str> {
     /// Override existing environment variables.
     pub override_env: bool,
 
@@ -58,8 +57,7 @@ impl<'a> Options<Cow<'a, OsStr>> {
     }
 }
 
-impl<P> Options<P>
-where P: AsRef<Path> + Clone {
+impl<P> Options<P> {
     #[inline]
     pub fn with_path(path: P) -> Self {
         Self {
@@ -71,14 +69,17 @@ where P: AsRef<Path> + Clone {
             path,
         }
     }
+}
 
+impl<P> Options<P>
+where P: AsRef<Path> {
     #[inline]
     pub fn config(&self) -> Result<()> {
         crate::config_with_options(&mut SystemEnv(), &SYSTEM_ENV, self)
     }
 
     #[inline]
-    pub fn config_env(&self, env: &mut impl Env) -> Result<()> {
+    pub fn config_env(&self, env: &mut dyn Env) -> Result<()> {
         crate::config_with_options(env, &SYSTEM_ENV, self)
     }
 
@@ -139,6 +140,7 @@ pub enum OptionType {
     Bool,
     Encoding,
     Dialect,
+    CommaList,
 }
 
 impl std::fmt::Display for OptionType {
@@ -186,8 +188,7 @@ impl std::fmt::Display for IllegalOption {
 impl std::error::Error for IllegalOption {}
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Builder<P=&'static str>
-where P: AsRef<Path> + Clone {
+pub struct Builder<P=&'static str> {
     options: Options<P>,
 }
 
@@ -219,8 +220,7 @@ impl<'a> Builder<Cow<'a, OsStr>> {
     }
 }
 
-impl<P> Builder<P>
-where P: AsRef<Path> + Clone {
+impl<P> Builder<P> {
     #[inline]
     pub fn with_path(path: P) -> Self {
         Self {
@@ -258,20 +258,6 @@ where P: AsRef<Path> + Clone {
         self
     }
 
-    pub fn path<NewP>(&self, value: NewP) -> Builder<NewP>
-    where NewP: AsRef<Path> + Clone {
-        Builder {
-            options: Options {
-                override_env: self.options.override_env,
-                debug: self.options.debug,
-                strict: self.options.strict,
-                encoding: self.options.encoding,
-                dialect: self.options.dialect,
-                path: value,
-            }
-        }
-    }
-
     #[inline]
     pub fn options(&self) -> &Options<P> {
         &self.options
@@ -286,6 +272,23 @@ where P: AsRef<Path> + Clone {
     pub fn into_options(self) -> Options<P> {
         self.options
     }
+}
+
+impl<P> Builder<P>
+where P: AsRef<Path> {
+    pub fn path<NewP>(&self, value: NewP) -> Builder<NewP>
+    where NewP: AsRef<Path> {
+        Builder {
+            options: Options {
+                override_env: self.options.override_env,
+                debug: self.options.debug,
+                strict: self.options.strict,
+                encoding: self.options.encoding,
+                dialect: self.options.dialect,
+                path: value,
+            }
+        }
+    }
 
     #[inline]
     pub fn config(self) -> Result<Self> {
@@ -294,7 +297,7 @@ where P: AsRef<Path> + Clone {
     }
 
     #[inline]
-    pub fn config_env(self, env: &mut impl Env) -> Result<Self> {
+    pub fn config_env(self, env: &mut dyn Env) -> Result<Self> {
         self.options.config_env(env)?;
         Ok(self)
     }

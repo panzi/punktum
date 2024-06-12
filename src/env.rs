@@ -293,14 +293,12 @@ impl<'a> AsRef<dyn GetEnv + 'a> for HashMap<String, String> where Self: 'a {
     }
 }
 
-pub struct DenyListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+pub struct DenyListEnv<'a, E> {
     env: E,
     deny_list: HashSet<&'a OsStr>,
 }
 
-impl<'a, E> DenyListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+impl<'a, E> DenyListEnv<'a, E> {
     #[inline]
     pub fn new(env: E, deny_list: HashSet<&'a OsStr>) -> Self {
         Self { env, deny_list }
@@ -361,6 +359,20 @@ where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
     }
 }
 
+impl<'a, E> AsMut<DenyListEnv<'a, E>> for DenyListEnv<'a, E> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut DenyListEnv<'a, E> {
+        self
+    }
+}
+
+impl<'a, E> AsRef<DenyListEnv<'a, E>> for DenyListEnv<'a, E> {
+    #[inline]
+    fn as_ref(&self) -> &DenyListEnv<'a, E> {
+        self
+    }
+}
+
 impl<'a, E> AsMut<dyn Env + 'a> for DenyListEnv<'a, E>
 where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
     #[inline]
@@ -377,14 +389,12 @@ where E: AsMut<dyn Env> + AsRef<dyn GetEnv>, Self: 'a {
     }
 }
 
-pub struct AllowListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+pub struct AllowListEnv<'a, E> {
     env: E,
     allow_list: HashSet<&'a OsStr>,
 }
 
-impl<'a, E> AllowListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+impl<'a, E> AllowListEnv<'a, E> {
     #[inline]
     pub fn new(env: E, allow_list: HashSet<&'a OsStr>) -> Self {
         Self { env, allow_list }
@@ -423,7 +433,7 @@ where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
 }
 
 impl<'a, E> GetEnv for AllowListEnv<'a, E>
-where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
+where E: AsRef<dyn GetEnv> {
     #[inline]
     fn get<'b>(&'b self, key: &OsStr) -> Option<Cow<'b, OsStr>> {
         self.env.as_ref().get(key)
@@ -442,6 +452,20 @@ where E: AsMut<dyn Env> + AsRef<dyn GetEnv> {
         if self.allow_list.contains(key) {
             self.env.as_mut().set(key, value);
         }
+    }
+}
+
+impl<'a, E> AsMut<AllowListEnv<'a, E>> for AllowListEnv<'a, E> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut AllowListEnv<'a, E> {
+        self
+    }
+}
+
+impl<'a, E> AsRef<AllowListEnv<'a, E>> for AllowListEnv<'a, E> {
+    #[inline]
+    fn as_ref(&self) -> &AllowListEnv<'a, E> {
+        self
     }
 }
 
