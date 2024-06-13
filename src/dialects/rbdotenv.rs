@@ -26,7 +26,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         }
 
         let mut key_start = parser.index;
-        let mut key_end = find_word_end(&parser.buf, parser.index);
+        let mut key_end = find_vardef_end(&parser.buf, parser.index);
 
 
         parser.index = key_end;
@@ -34,10 +34,10 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         parser.skip_ws();
 
         let mut export = false;
-        if parser.buf[parser.index..].starts_with(is_word) && &parser.buf[key_start..key_end] == "export" {
+        if parser.buf[parser.index..].starts_with(is_vardef) && &parser.buf[key_start..key_end] == "export" {
             export = true;
             key_start = parser.index;
-            key_end = find_word_end(&parser.buf, parser.index);
+            key_end = find_vardef_end(&parser.buf, parser.index);
             // yes, the original skips lines here!
             parser.skip_ws();
         }
@@ -48,7 +48,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
             if options.debug {
                 let line = &parser.buf[parser.line_start..line_end];
                 if let Some(ch) = parser.buf[key_start..].chars().next() {
-                    eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected variable name, found '{:?}': {}",
+                    eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected variable name, found {:?}: {}",
                         parser.lineno, column, ch, line);
                 } else {
                     eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: unexpected end of file: {}",
@@ -63,7 +63,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         }
 
         let tail = &parser.buf[parser.index..];
-        if export && tail.starts_with(is_word) {
+        if export && tail.starts_with(is_vardef) {
             // check that variables are set
             loop {
                 let key = &parser.buf[key_start..key_end];
@@ -92,7 +92,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
                 }
 
                 key_start = parser.index;
-                key_end = find_word_end(&parser.buf, parser.index);
+                key_end = find_vardef_end(&parser.buf, parser.index);
                 parser.index = key_end;
 
                 if key_start == key_end {
@@ -101,7 +101,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
                     if options.debug {
                         let line = &parser.buf[parser.line_start..line_end];
                         if let Some(ch) = parser.buf[key_start..].chars().next() {
-                            eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected variable name, found '{:?}': {}",
+                            eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected variable name, found {:?}: {}",
                                 parser.lineno, column, ch, line);
                         } else {
                             eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: unexpected end of file: {}",
@@ -123,7 +123,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
             if options.debug {
                 let line = &parser.buf[parser.line_start..line_end];
                 if let Some(ch) = parser.buf[key_start..].chars().next() {
-                    eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected variable name, found '{:?}': {}",
+                    eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected variable name, found {:?}: {}",
                         parser.lineno, column, ch, line);
                 } else {
                     eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: unexpected end of file: {}",
@@ -171,15 +171,56 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         }
 
         options.set_var_cut_null(env, parser.buf[key_start..key_end].as_ref(), value.as_ref());
-
     }
 
     Ok(())
 }
 
-fn perform_substitutions(src: &str, env: &dyn GetEnv) -> String {
-    // TODO
-    unimplemented!()
+fn perform_substitutions(mut src: &str, env: &dyn GetEnv) -> String {
+    let mut buf = String::new();
+
+    loop {
+        let Some(index) = src.find(|ch| ch == '$' || ch == '\\') else {
+            break;
+        };
+
+        buf.push_str(&src[..index]);
+        src = &src[index..];
+
+        if src.starts_with('\\') {
+            src = &src[1..];
+            let Some(ch) = src.chars().next() else {
+                break;
+            };
+            buf.push(ch);
+            src = &src[ch.len_utf8()..];
+        } else {
+            let mut var_start = 1;
+            if src.starts_with("${") {
+                var_start += 1;
+            }
+            let var_end = find_substvar_end(src, var_start);
+            if var_start == var_end {
+                // ignore syntax error, like the original
+                buf.push_str(&src[..var_end]);
+                src = &src[var_end..];
+            } else {
+                let key = &src[var_start..var_end];
+                if let Some(value) = env.get(key.as_ref()) {
+                    buf.push_str(&value.to_string_lossy());
+                }
+                // yes, the { is independent to the } in the original!
+                src = &src[var_end..];
+                if src.starts_with('}') {
+                    src = &src[1..];
+                }
+            }
+        }
+    }
+
+    buf.push_str(src);
+
+    buf
 }
 
 fn unescape_unquoted(mut value: &str) -> String {
@@ -278,7 +319,7 @@ impl Parser {
                     iter.next();
                 }
             } else if ch == quote {
-                self.index = index;
+                self.index += index;
                 return;
             }
         }
@@ -287,17 +328,33 @@ impl Parser {
 }
 
 #[inline]
-fn is_word(ch: char) -> bool {
-    ch.is_alphanumeric() || ch == '_' || ch == '.'
+fn is_vardef(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_' || ch == '.'
 }
 
 #[inline]
-fn find_word_end(src: &str, index: usize) -> usize {
+fn find_vardef_end(src: &str, index: usize) -> usize {
     let len = src.len();
     if index >= len {
         return len;
     }
-    src[index..].find(is_word).
+    src[index..].find(|ch| !is_vardef(ch)).
+        map(|pos| pos + index).
+        unwrap_or(len)
+}
+
+#[inline]
+fn is_substvar(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
+}
+
+#[inline]
+fn find_substvar_end(src: &str, index: usize) -> usize {
+    let len = src.len();
+    if index >= len {
+        return len;
+    }
+    src[index..].find(|ch| !is_substvar(ch)).
         map(|pos| pos + index).
         unwrap_or(len)
 }
