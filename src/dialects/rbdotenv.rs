@@ -181,17 +181,18 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         }
 
         let value_slice = &parser.buf[value_start..value_end];
+        // eprintln!(">>> {}={:?}", &parser.buf[key_start..key_end], value_slice);
 
         let value;
         if value_slice.len() > 1 && value_slice.starts_with('\'') && value_slice.ends_with('\'') {
-            value = perform_substitutions(&parser.buf[value_start + 1..value_end - 1], env.as_get_env());
+            value = parser.buf[value_start + 1..value_end - 1].to_owned();
         } else if value_slice.len() > 1 && value_slice.starts_with('"') && value_slice.ends_with('"') {
             value = perform_substitutions(&unescape_double_quoted(&parser.buf[value_start + 1..value_end - 1]), env.as_get_env());
         } else {
-            value = perform_substitutions(&unescape_unquoted(value_slice.trim_end_matches(|ch| matches!(ch, '\t' | '\x0B' | '\x0C' | ' '))), env.as_get_env());
+            value = perform_substitutions(&unescape_single_unquoted(value_slice.trim_end_matches(|ch| matches!(ch, '\t' | '\x0B' | '\x0C' | ' '))), env.as_get_env());
         }
 
-        eprintln!("set {}={:?}", &parser.buf[key_start..key_end], value);
+        // eprintln!("set {}={:?}", &parser.buf[key_start..key_end], value);
         options.set_var_cut_null(env, parser.buf[key_start..key_end].as_ref(), value.as_ref());
 
         parser.skip_ws_inline();
@@ -235,8 +236,12 @@ fn perform_substitutions(mut src: &str, env: &dyn GetEnv) -> String {
         if src.starts_with('\\') {
             src = &src[1..];
             let Some(ch) = src.chars().next() else {
+                buf.push('\\');
                 break;
             };
+            if ch != '$' {
+                buf.push('\\');
+            }
             buf.push(ch);
             src = &src[ch.len_utf8()..];
         } else {
@@ -270,7 +275,7 @@ fn perform_substitutions(mut src: &str, env: &dyn GetEnv) -> String {
     buf
 }
 
-fn unescape_unquoted(mut value: &str) -> String {
+fn unescape_single_unquoted(mut value: &str) -> String {
     let mut buf = String::new();
 
     while !value.is_empty() {
@@ -278,15 +283,19 @@ fn unescape_unquoted(mut value: &str) -> String {
             break;
         };
 
+        let Some(ch) = value[index + 1..].chars().next() else {
+            // backslash must be followed by something
+            break;
+        };
+
         buf.push_str(&value[..index]);
 
-        if value[index..].starts_with("\\$") {
-            buf.push_str("\\$");
-            index += 2;
-        } else {
-            index += 1;
+        match ch {
+            '$' => buf.push_str("\\$"),
+            _   => buf.push(ch),
         }
 
+        index += 1 + ch.len_utf8();
         value = &value[index..];
     }
 
@@ -298,23 +307,26 @@ fn unescape_double_quoted(mut value: &str) -> String {
     let mut buf = String::new();
 
     while !value.is_empty() {
-        let Some(index) = value.find('\\') else {
+        let Some(mut index) = value.find('\\') else {
+            break;
+        };
+
+        let Some(ch) = value[index + 1..].chars().next() else {
+            // backslash must be followed by something
             break;
         };
 
         buf.push_str(&value[..index]);
-        value = &value[index + 1..];
 
-        if value.starts_with('$') {
-            buf.push_str("\\$");
-            value = &value[1..];
-        } else if value.starts_with('n') {
-            buf.push('\n');
-            value = &value[1..];
-        } else if value.starts_with('r') {
-            buf.push('\r');
-            value = &value[1..];
+        match ch {
+            '$' => buf.push_str("\\$"),
+            'n' => buf.push('\n'),
+            'r' => buf.push('\r'),
+            _   => buf.push(ch),
         }
+
+        index += 1 + ch.len_utf8();
+        value = &value[index..];
     }
 
     buf.push_str(value);
