@@ -36,6 +36,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
             export = true;
             key_start = parser.index;
             key_end = find_vardef_end(&parser.buf, parser.index);
+            parser.index = key_end;
             parser.skip_ws_inline();
         }
 
@@ -142,28 +143,52 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
 
         let value_start = parser.index;
         let mut value_end = value_start;
-        let mut quote = '\0';
+        let mut quote = false;
         if let Some(ch) = tail.chars().next() {
             if ch == '"' || ch == '\'' {
+                let lineno = parser.lineno;
+                let line_start = parser.line_start;
+                let index = parser.index;
+
                 parser.index += 1;
                 if parser.skip_to_quote_end(ch) {
-                    quote = ch;
+                    quote = true;
                     value_end = parser.index + 1;
+                    parser.index = value_end;
+                    parser.skip_ws_inline();
+
+                    let tail = &parser.buf[parser.index..];
+                    if tail.starts_with('#') {
+                        parser.index = find_line_end(&parser.buf, parser.index);
+                    } else if !tail.is_empty() && !tail.starts_with('\n') {
+                        // back out of parsing a quoted striung and fallback to normal string
+                        quote = false;
+                        parser.line_start = line_start;
+                        parser.lineno = lineno;
+                        parser.index = index;
+                    }
                 } else {
-                    parser.index -= 1;
+                    parser.line_start = line_start;
+                    parser.lineno = lineno;
+                    parser.index = index;
                 }
             }
         }
 
-        let value;
-        if quote == '\0' {
+        if quote == false {
             value_end = find_value_end(&parser.buf, parser.index);
             parser.index = value_end;
-            value = perform_substitutions(&unescape_unquoted(&parser.buf[value_start..value_end]), env.as_get_env());
-        } else if quote == '\'' {
+        }
+
+        let value_slice = &parser.buf[value_start..value_end];
+
+        let value;
+        if value_slice.len() > 1 && value_slice.starts_with('\'') && value_slice.ends_with('\'') {
             value = perform_substitutions(&parser.buf[value_start + 1..value_end - 1], env.as_get_env());
-        } else {
+        } else if value_slice.len() > 1 && value_slice.starts_with('"') && value_slice.ends_with('"') {
             value = perform_substitutions(&unescape_double_quoted(&parser.buf[value_start + 1..value_end - 1]), env.as_get_env());
+        } else {
+            value = perform_substitutions(&unescape_unquoted(value_slice.trim_end_matches(|ch| matches!(ch, '\t' | '\x0B' | '\x0C' | ' '))), env.as_get_env());
         }
 
         eprintln!("set {}={:?}", &parser.buf[key_start..key_end], value);
@@ -219,6 +244,8 @@ fn perform_substitutions(mut src: &str, env: &dyn GetEnv) -> String {
             if src.starts_with("${") {
                 var_start += 1;
             }
+            // TODO: parse, but don't execute $()
+            // TODO: be loud about the fact that $() isn't supported?
             let var_end = find_substvar_end(src, var_start);
             if var_start == var_end {
                 // ignore syntax error, like the original
@@ -326,10 +353,6 @@ impl Parser {
     }
 
     fn skip_to_quote_end(&mut self, quote: char) -> bool {
-        let lineno = self.lineno;
-        let line_start = self.line_start;
-        let index = self.index;
-
         let mut iter = self.buf[self.index..].char_indices().peekable();
         while let Some((index, ch)) = iter.next() {
             if ch == '\n' {
@@ -347,10 +370,6 @@ impl Parser {
                 return true;
             }
         }
-
-        self.line_start = line_start;
-        self.lineno = lineno;
-        self.index = index;
 
         false
     }
