@@ -28,18 +28,15 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         let mut key_start = parser.index;
         let mut key_end = find_vardef_end(&parser.buf, parser.index);
 
-
         parser.index = key_end;
-        // yes, the original skips lines here!
-        parser.skip_ws();
+        parser.skip_ws_inline();
 
         let mut export = false;
         if parser.buf[parser.index..].starts_with(is_vardef) && &parser.buf[key_start..key_end] == "export" {
             export = true;
             key_start = parser.index;
             key_end = find_vardef_end(&parser.buf, parser.index);
-            // yes, the original skips lines here!
-            parser.skip_ws();
+            parser.skip_ws_inline();
         }
 
         if key_start == key_end {
@@ -122,8 +119,8 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
 
             if options.debug {
                 let line = &parser.buf[parser.line_start..line_end];
-                if let Some(ch) = parser.buf[key_start..].chars().next() {
-                    eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected variable name, found {:?}: {}",
+                if let Some(ch) = tail.chars().next() {
+                    eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected '=', found {:?}: {}",
                         parser.lineno, column, ch, line);
                 } else {
                     eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: unexpected end of file: {}",
@@ -145,18 +142,17 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
 
         let value_start = parser.index;
         let mut value_end = value_start;
-        let quote;
+        let mut quote = '\0';
         if let Some(ch) = tail.chars().next() {
             if ch == '"' || ch == '\'' {
                 parser.index += 1;
-                parser.skip_to_quote_end(ch);
-                quote = ch;
-                value_end = parser.index;
-            } else {
-                quote = '\0';
+                if parser.skip_to_quote_end(ch) {
+                    quote = ch;
+                    value_end = parser.index + 1;
+                } else {
+                    parser.index -= 1;
+                }
             }
-        } else {
-            quote = '\0';
         }
 
         let value;
@@ -170,7 +166,31 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
             value = perform_substitutions(&unescape_double_quoted(&parser.buf[value_start + 1..value_end - 1]), env.as_get_env());
         }
 
+        eprintln!("set {}={:?}", &parser.buf[key_start..key_end], value);
         options.set_var_cut_null(env, parser.buf[key_start..key_end].as_ref(), value.as_ref());
+
+        parser.skip_ws_inline();
+        let Some(ch) = parser.buf[parser.index..].chars().next() else {
+            break;
+        };
+
+        if ch == '#' {
+            parser.index = find_line_end(&parser.buf, parser.index);
+        } else if ch != '\n' {
+            let line_end = find_line_end(&parser.buf, parser.index);
+            let column = parser.index - parser.line_start + 1;
+
+            if options.debug {
+                let line = &parser.buf[parser.line_start..line_end];
+                eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected line end, found {:?}: {}",
+                    parser.lineno, column, ch, line);
+            }
+
+            if options.strict {
+                return Err(Error::syntax_error(parser.lineno, column));
+            }
+            parser.index = line_end;
+        }
     }
 
     Ok(())
@@ -305,7 +325,11 @@ impl Parser {
         }
     }
 
-    fn skip_to_quote_end(&mut self, quote: char) {
+    fn skip_to_quote_end(&mut self, quote: char) -> bool {
+        let lineno = self.lineno;
+        let line_start = self.line_start;
+        let index = self.index;
+
         let mut iter = self.buf[self.index..].char_indices().peekable();
         while let Some((index, ch)) = iter.next() {
             if ch == '\n' {
@@ -320,10 +344,15 @@ impl Parser {
                 }
             } else if ch == quote {
                 self.index += index;
-                return;
+                return true;
             }
         }
-        self.index = self.buf.len();
+
+        self.line_start = line_start;
+        self.lineno = lineno;
+        self.index = index;
+
+        false
     }
 }
 
