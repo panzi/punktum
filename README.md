@@ -228,8 +228,8 @@ for (key, value) in &env {
 Punktum comes as a library and as a binary. Usage of the binary:
 
 ```plain
-usage: punktum [--file=DOTENV...] [--replace] [--] command [args...]
-       punktum [--file=DOTENV...] [--replace] --print-env [--sorted] [--export]
+usage: punktum [--file=PATH...] [--replace] [--] command [args...]
+       punktum [--file=PATH...] [--replace] --print-env [--sorted] [--export] [--binary]
        punktum [--help] [--version]
 
 Punktum executes a given command with environment variables loaded from a .env file.
@@ -240,18 +240,24 @@ Positional arguments:
 Optional arguments:
   -h, --help                Print this help message and exit.
   -v, --version             Print program's version and exit.
-  -f DOTENV, --file=DOTENV  File to use instead of .env
+  -f PATH, --file=PATH      File to use instead of ".env"
                             This option can be passed multiple times.
                             All files are loaded in order.
-  -r, --replace             Completely replace all existing environment variables with
-                            the ones loaded from the .env file.
+                            Pass "-" to read from stdin.
+  -r, --replace             Completely replace the environment with the one loaded
+                            from the .env file.
   -p, --print-env           Instead of running a command print the built environment
                             in a syntax compatible to Punktum and bash.
       --sorted              Sort printed environment variables for reproducible output.
       --export              Add 'export ' prefix to every printed environment variable.
+      --strict=bool         Overwrite DOTENV_CONFIG_STRICT
+      --debug=bool          Overwrite DOTENV_CONFIG_DEBUG
+      --override=bool       Overwrite DOTENV_CONFIG_OVERRIDE
+      --encoding=ENCODING   Overwrite DOTENV_CONFIG_ENCODING
+      --dialect=DIALECT     Overwrite DOTENV_CONFIG_DIALECT
 
 Environemnt variables:
-  DOTENV_CONFIG_PATH=FILE  (default: .env)
+  DOTENV_CONFIG_PATH=FILE  (default: ".env")
     File to use instead of .env. This can be overwritten by --file.
 
   DOTENV_CONFIG_STRICT=true|false  (default: true)
@@ -284,5 +290,12 @@ Environemnt variables:
     - NodeJS
     - PythonDotenvCLI
     - ComposeGo
+    - GoDotenv
+    - RubyDotenv
     - Binary
+
+  DOTENV_LINEBREAK_MODE=legacy
+    RubyDotenv dialect-only. If this environment variable is set to "legacy"
+    "\n" and "\r" in unquoted values and double quoted values are replaced
+    with actual newline and carrige return characters.
 ```

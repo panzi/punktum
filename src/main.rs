@@ -6,8 +6,8 @@ use std::os::unix::process::CommandExt;
 use punktum::{env::{parse_bool, AllowListEnv, DenyListEnv}, options::{Builder, IllegalOption, OptionType}, Dialect, Encoding, Env, Error, ErrorKind};
 
 const USAGE: &str = concat!("\
-usage: ", env!("CARGO_BIN_NAME"), " [--file=DOTENV...] [--replace] [--] command [args...]
-       ", env!("CARGO_BIN_NAME"), " [--file=DOTENV...] [--replace] --print-env [--sorted] [--export] [--binary]
+usage: ", env!("CARGO_BIN_NAME"), " [--file=PATH...] [--replace] [--] command [args...]
+       ", env!("CARGO_BIN_NAME"), " [--file=PATH...] [--replace] --print-env [--sorted] [--export] [--binary]
        ", env!("CARGO_BIN_NAME"), " [--help] [--version]
 
 Punktum executes a given command with environment variables loaded from a .env file.
