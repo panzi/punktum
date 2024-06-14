@@ -47,11 +47,12 @@ implemented as a line based parser, reading one line at a time from the file.
 
 ### Examples
 
-```dotenv
+```bash
 # comment line
 FOO=BAR # comment after the value
 FOO=BAR# no need for a space before the #
 FOO="BAR" # this comment is handled correctly even though it ends with "
+FOO="BAR" "BAZ" # produces: "BAR BAZ"
 
 WHITESPACE=  spaces around the value are ignored  
 WHITESPACE=  but  between  the  words  spaces  are  preserved
