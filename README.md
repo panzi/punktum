@@ -26,18 +26,85 @@ with my limited manual test.
 | PythonDotenvCLI | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli) pypi package. There seem to be encoding errors in the Python version? Interpreting UTF-8 as ISO-8859-1? |
 | ComposeGo | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
 | GoDotenv | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems like a predecessor to the above. There are many things that aren't or aren't correctly handled by this that are better handeled by the docker-compose version. Both suffer from problems that arise from variable substitution being destinct from string literal and escape sequence parsing and by cheaping out by using regular expressions. |
-| RubyDotenv | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. |
+| RubyDotenv | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. **NOTE:** Command `$()` support is deliberately not implemented. I deem running programs from a `.env` file to be dangerous. Use a shell script if you want to do that. |
 | JavaScriptDotenv | *Not Implemented* | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. |
-| JavaDotenv | *Not Implemented* | Compatible to [java-dotenv](https://github.com/cdimascio/dotenv-java). |
+| JavaDotenv | *Not Implemented* | Compatible to [java-dotenv](https://github.com/cdimascio/dotenv-java). Yet again subtly different. |
 | Dotenvy | *Not Implemented* | Probably won't implement [dotenvy](https://github.com/allan2/dotenvy) support, since it is already a Rust crate. And it is a good dialect with a sane parser. **Use that!** |
-| Binary | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only used UTF-8. |
+| Binary | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only uses UTF-8. |
 
 I might not implement any more dialects than I have right now.
 
 Punktum Dialect
 ---------------
 
-Details might change.
+Details might change!
+
+If `DOTENV_CONFIG_STRICT` is set to `false` (default is `true`) all sorts of
+syntax errors are forgiven. Even if there are encoding errors parsing resumes in
+the next line. While the implementations of all dialects are somewhat respecting
+this setting only Punktum is resuming decoding on the next line, since it was
+implemented as a line based parser, reading one line at a time from the file.
+
+### Examples
+
+```dotenv
+# comment line
+FOO=BAR # comment after the value
+FOO=BAR# no need for a space before the #
+FOO="BAR" # this comment is handled correctly even though it ends with "
+
+WHITESPACE=  spaces around the value are ignored  
+WHITESPACE=  but  between  the  words  spaces  are  preserved
+
+MULTILINE="
+  a multiline comment
+  spanning several
+  lines
+  # not a comment
+"
+
+VARIABLE_SUBSTITUTIONS="
+  only in unquoted and double quoted values
+  normal: $FOO
+  in braces: X${FOO}X
+  ${FOO:?error message if \$FOO is empty or not set}
+  default value: ${FOO:-$OTHER}
+  for more see below
+"
+
+ESCAPES="
+  only in double quoted values
+  no newline: \
+  newline: \n
+  carrige return: \r
+  tab: \t
+  backslash: \\
+  dollar: \$
+  unicode: \u00e4
+  for more see below
+"
+
+RAW_STRING='
+  these escapes are taken verbatim: \n \t \\
+'
+
+# to write a value with single quotes and otherwise as a raw string:
+FOO='You cant'"'"'t fail!'
+
+# explicitly import variables from the parent environment:
+PATH
+HOME
+PWD
+SHELL
+
+# only then you can re-use them
+FOO=$HOME/.env
+
+# export keywords are ignored, the line is parsed as if there where no export:
+export FOO=BAR
+```
+
+### Syntax Definition
 
 ```plain
 PUNKTUM       := { ( VAR_ASSIGN | VAR_IMPORT ) "\n" }
@@ -67,19 +134,20 @@ A value consists of a sequence of quoted and unquoted strings.
 If not quoted, spaces around a value are trimmed. A comment starts with `#` even
 if it touches a word on its left side.
 
-Both single and double quoted strings can be multiline. Variables can be refrenced
+Both single and double quoted strings can be multiline. Variables can be refernced
 in unquoted and double quoted strings. Escape sequences are only evaluated inside
-of double quoted strings.
+of double quoted strings. (Should they be also evaluated in unquoted values?)
 
 Note that UTF-16 escape sequences need to encode valid surrogate pairs if they
 encode a large enough code-point. Invalid Unicode values are rejected as an error.
 
 The variable substitution syntax is similar to the Unix shell. Variables are only
-read from the current environment, not the parent environemnt. You need to import them
-first to use them. (Should that be changed?)
+read from the current environment, not the parent environemnt. You need to import
+them first to use them. (Should that be changed?)
 
 | Syntax | Description |
 |:-|:-|
+| `$VAR` or `${VAR}` | Empty string if unset. |
 | `${VAR:?MESSAGE}` | Error if `$VAR` is empty or unset. If provided `MESSAGE` will be printed as the error message. |
 | `${VAR?MESSAGE}` | Error if `$VAR` is unset. If provided `MESSAGE` will be printed as the error message. |
 | `${VAR:-DEFAULT}` | Use `DEFAULT` if `$VAR` is empty or unset. |
@@ -88,7 +156,7 @@ first to use them. (Should that be changed?)
 | `${VAR+DEFAULT}` | Use `DEFAULT` if `$VAR` is set. |
 
 The `MESSAGE`/`DEFAULT` part can be anything like in a value, only not a `}` outside
-of a quoted string.
+of a quoted string. (Maybe I should add `\{` and `\}` escapes?)
 
 If you want to write a `.env` file in the Punktum dialect conatining arbitarary
 characters you can quote the values very easily like this:
@@ -110,19 +178,18 @@ also be valid Unix shell syntax and I think also valid syntax for
 other dotenv implementations, since they only allow one single quoted string and
 not a sequence of quoted strings.
 
-This also works for the Punktum dialect, as long as there are no `$VARIABLE`
-substitutions in your strings:
+The fllowing also works for the Punktum dialect:
 
 ```JavaScript
 var env = new Map();
 // env is filled somehow...
 for (const [key, value] of env) {
-    console.log(`${key}=${JSON.stringify(value)}`);
+    console.log(`${key}=${JSON.stringify(value).replaceAll('$', '\\u0024')}`);
 }
 ```
 
-It should work best with Python's [dotenv-cli](https://github.com/venthur/dotenv-cli),
-but the other dialects don't support UTF-16 unicode escape sequences (`\u####`).
+This should also work with Python's [dotenv-cli](https://github.com/venthur/dotenv-cli),
+but the other dialects don't support UTF-16 Unicode escape sequences (`\u####`).
 
 Binary Dialect
 --------------
