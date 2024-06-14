@@ -49,13 +49,13 @@ implemented as a line based parser, reading one line at a time from the file.
 
 ```bash
 # comment line
-FOO=BAR # comment after the value
-FOO=BAR# no need for a space before the #
-FOO="BAR" # this comment is handled correctly even though it ends with "
-FOO="BAR" "BAZ" # produces: "BAR BAZ"
+VAR1=BAR # comment after the value
+VAR2=BAR# no need for a space before the #
+VAR3="BAR" # this comment is handled correctly even though it ends with "
+VAR4="BAR" "BAZ" # produces: "BAR BAZ"
 
-WHITESPACE=  spaces around the value are ignored  
-WHITESPACE=  but  between  the  words  spaces  are  preserved
+WHITESPACE1=  spaces around the value are ignored  
+WHITESPACE2=  but  between  the  words  spaces  are  preserved
 
 MULTILINE="
   a multiline comment
@@ -64,14 +64,21 @@ MULTILINE="
   # not a comment
 "
 
-VARIABLE_SUBSTITUTIONS="
+VARIABLE_SUBSTITUTIONS1="
   only in unquoted and double quoted values
-  normal: $FOO
-  in braces: X${FOO}X
-  ${FOO:?error message if \$FOO is empty or not set}
-  default value: ${FOO:-$OTHER}
+  normal: $VAR1
+  in braces: X${VAR1}X
+  ${VAR1:?error message if \$VAR1 is empty or not set}
+  default value: ${VAR1:-$OTHER}
   for more see below
 "
+
+VARIABLE_SUBSTITUTIONS2=${FOO:-
+  variable substitutions
+  can of course also be
+  multiline, even without
+  double quotes
+}
 
 ESCAPES="
   only in double quoted values
@@ -85,12 +92,12 @@ ESCAPES="
   for more see below
 "
 
-RAW_STRING='
+RAW_STRING1='
   these escapes are taken verbatim: \n \t \\
 '
 
 # to write a value with single quotes and otherwise as a raw string:
-FOO='You cant'"'"'t fail!'
+RAW_STRING2='You cant'"'"'t fail!'
 
 # explicitly import variables from the parent environment:
 PATH
@@ -99,10 +106,10 @@ PWD
 SHELL
 
 # only then you can re-use them
-FOO=$HOME/.env
+SOME_PATH=$HOME/.env
 
 # export keywords are ignored, the line is parsed as if there where no export:
-export FOO=BAR
+export EXPORT_IGNORED=FOO BAR
 ```
 
 ### Syntax Definition
