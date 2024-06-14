@@ -1,9 +1,15 @@
 // trying to emulate: https://github.com/bkeepers/dotenv/blob/27c80ed122f9bbe403033282e922d74ca717d518/lib/dotenv/parser.rb
-use std::{io::BufRead, path::Path};
+use std::{ffi::OsStr, io::BufRead, path::Path};
 
 use crate::{env::GetEnv, Env, Error, Options, Result, DEBUG_PREFIX};
 
-pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
+    let legacy_linebreak = if let Some(value) = parent.get("DOTENV_LINEBREAK_MODE".as_ref()) {
+        let value: &OsStr = value.as_ref();
+        value == "legacy"
+    } else {
+        false
+    };
     let path_str = options.path.to_string_lossy();
     let mut buf = String::new();
     options.encoding.read_to_string(reader, &mut buf)?;
@@ -187,7 +193,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         if value_slice.len() > 1 && value_slice.starts_with('\'') && value_slice.ends_with('\'') {
             value = parser.buf[value_start + 1..value_end - 1].to_owned();
         } else if value_slice.len() > 1 && value_slice.starts_with('"') && value_slice.ends_with('"') {
-            value = perform_substitutions(&unescape_double_quoted(&parser.buf[value_start + 1..value_end - 1]), env.as_get_env());
+            value = perform_substitutions(&unescape_double_quoted(&parser.buf[value_start + 1..value_end - 1], env, legacy_linebreak), env.as_get_env());
         } else {
             value = perform_substitutions(&unescape_single_unquoted(value_slice.trim_end_matches(|ch| matches!(ch, '\t' | '\x0B' | '\x0C' | ' '))), env.as_get_env());
         }
@@ -303,7 +309,14 @@ fn unescape_single_unquoted(mut value: &str) -> String {
     buf
 }
 
-fn unescape_double_quoted(mut value: &str) -> String {
+fn unescape_double_quoted(mut value: &str, env: &dyn Env, parent_legacy_linebreak: bool) -> String {
+    let legacy_linebreak = if let Some(value) = env.get("DOTENV_LINEBREAK_MODE".as_ref()) {
+        let value: &OsStr = value.as_ref();
+        value == "legacy"
+    } else {
+        parent_legacy_linebreak
+    };
+
     let mut buf = String::new();
 
     while !value.is_empty() {
@@ -320,8 +333,8 @@ fn unescape_double_quoted(mut value: &str) -> String {
 
         match ch {
             '$' => buf.push_str("\\$"),
-            'n' => buf.push('\n'),
-            'r' => buf.push('\r'),
+            'n' => if legacy_linebreak { buf.push('\n'); } else { buf.push_str("\\n"); },
+            'r' => if legacy_linebreak { buf.push('\r'); } else { buf.push_str("\\r"); },
             _   => buf.push(ch),
         }
 

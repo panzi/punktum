@@ -125,7 +125,7 @@ where P: AsRef<Path> {
         Dialect::PythonDotenvCLI  => config_pydotenvcli(reader, env, &options),
         Dialect::ComposeGo        => config_composego(  reader, env, parent, &options),
         Dialect::GoDotenv         => config_godotenv(   reader, env, &options),
-        Dialect::RubyDotenv       => config_rbdotenv(   reader, env, &options),
+        Dialect::RubyDotenv       => config_rbdotenv(   reader, env, parent, &options),
         Dialect::Binary           => config_binary(     reader, env, &options),
     }
 }

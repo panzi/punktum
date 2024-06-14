@@ -72,6 +72,11 @@ Environemnt variables:
     - RubyDotenv
     - Binary
 
+  DOTENV_LINEBREAK_MODE=legacy
+    RubyDotenv dialect-only. If this environment variable is set to \"legacy\"
+    \"\\n\" and \"\\r\" in unquoted values and double quoted values are replaced
+    with actual newline and carrige return characters.
+
 © 2024 ", env!("CARGO_PKG_AUTHORS"), "
 GitHub: https://github.com/panzi/punktum
 ");
