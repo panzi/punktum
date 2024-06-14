@@ -181,7 +181,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
             }
         }
 
-        if quote == false {
+        if !quote {
             value_end = find_value_end(&parser.buf, parser.index);
             parser.index = value_end;
         }
