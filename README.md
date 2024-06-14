@@ -21,7 +21,7 @@ with my limited manual test.
 
 | Dialect | Status | Description |
 |:-|:-:|:-|
-| Punktum | Works | Crazy dialect I made up. |
+| Punktum | Works | Crazy dialect I made up. More details below. |
 | NodeJS  | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
 | PythonDotenvCLI | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli) pypi package. There seem to be encoding errors in the Python version? Interpreting UTF-8 as ISO-8859-1? |
 | ComposeGo | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
