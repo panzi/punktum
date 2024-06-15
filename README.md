@@ -349,6 +349,8 @@ if the listed keys exist in the environment. If not an error is raised.
 Instead of `=` this dialect also accepts `:`, but only if there is no
 space between it and the variable name.
 
+Accepts `\n`, `\r\n`, and even singular `\r` as line seperator.
+
 `punktum` Binary
 ----------------
 
