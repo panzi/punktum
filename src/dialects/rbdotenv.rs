@@ -31,6 +31,10 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
             continue;
         }
 
+        if parser.index >= parser.buf.len() {
+            break;
+        }
+
         let mut key_start = parser.index;
         let mut key_end = find_vardef_end(&parser.buf, parser.index);
 
@@ -127,12 +131,27 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
             if options.debug {
                 let line = &parser.buf[parser.line_start..line_end];
                 if let Some(ch) = tail.chars().next() {
-                    eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected '=', found {:?}: {}",
+                    eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected '=' or ':', found {:?}: {}",
                         parser.lineno, column, ch, line);
                 } else {
                     eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: unexpected end of file: {}",
                         parser.lineno, column, line);
                 }
+            }
+
+            if options.strict {
+                return Err(Error::syntax_error(parser.lineno, column));
+            }
+            parser.index = line_end;
+            continue;
+        } else if parser.index != key_end && tail.starts_with(':') {
+            let line_end = find_line_end(&parser.buf, parser.index);
+            let column = parser.index - parser.line_start + 1;
+
+            if options.debug {
+                let line = &parser.buf[parser.line_start..line_end];
+                eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: there may be no space between the variable name and ':': {}",
+                    parser.lineno, column, line);
             }
 
             if options.strict {
