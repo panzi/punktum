@@ -35,21 +35,31 @@ Optional arguments:
       --dialect=DIALECT     Overwrite DOTENV_CONFIG_DIALECT
 
 Environemnt variables:
-  DOTENV_CONFIG_PATH=FILE  (default: \".env\")
-    File to use instead of .env. This can be overwritten by --file.
+  DOTENV_CONFIG_PATH=FILE
+    File to use instead of \".env\".
+    This can be overwritten with --file.
+    [default: \".env\"]
 
-  DOTENV_CONFIG_STRICT=true|false  (default: true)
+  DOTENV_CONFIG_STRICT=true|false
     Stop and return an error if any problem is encounterd,
     like a file is not found, an encoding error, or a syntax error.
+    This can be overwritten with --strict.
+    [default: true]
 
-  DOTENV_CONFIG_DEBUG=true|false  (default: false)
+  DOTENV_CONFIG_DEBUG=true|false
     Write debug messages to stderr if there are any problems.
+    This can be overwritten with --debug.
+    [default: false]
 
-  DOTENV_CONFIG_OVERRIDE=true|false  (default: false)
+  DOTENV_CONFIG_OVERRIDE=true|false
     Replace existing environment variables.
+    This can be overwritten with --override.
+    [default: false]
 
   DOTENV_CONFIG_ENCODING=ENCODING
-    Encoding of .env file.
+    Encoding of \".env\" file.
+    This can be overwritten with --encoding.
+    [default: UTF-8]
 
     Supported values:
     - ASCII
@@ -62,6 +72,8 @@ Environemnt variables:
 
   DOTENV_CONFIG_DIALECT=DIALECT
     Dialect for the parser to use.
+    This can be overwritten with --dialect.
+    [default: Punktum]
 
     Supported values:
     - Punktum (default)

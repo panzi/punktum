@@ -13,6 +13,11 @@ so far I don't have any dependencies and like to keep it that way, which
 might be a problem for certain dialects that use complex regular
 expressions.
 
+This also comes with an [executable](#punktum-executable) that can be used
+as a program starter that sets the environment of a process. Also see that
+section for a description of configuration environment variables that are
+read by both the library and the executable.
+
 Dialects
 --------
 
@@ -23,7 +28,7 @@ with my limited manual test.
 |:-|:-:|:-|
 | [Punktum](#punktum-dialect) | Works | Crazy dialect I made up. More details below. |
 | [NodeJS](#nodejs-dialect) | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
-| PythonDotenvCLI | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli) pypi package. There seem to be encoding errors in the Python version? Interpreting UTF-8 as ISO-8859-1? |
+| [PythonDotenvCLI](#python-dotenv-cli-dialect) | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli) pypi package. There seem to be encoding errors in the Python version? Interpreting UTF-8 as ISO-8859-1? |
 | ComposeGo | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
 | GoDotenv | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems like a predecessor to the above. There are many things that aren't or aren't correctly handled by this that are better handeled by the docker-compose version. Both suffer from problems that arise from variable substitution being destinct from string literal and escape sequence parsing and by cheaping out by using regular expressions. |
 | [RubyDotenv](#ruby-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. **NOTE:** Command `$()` support is deliberately not implemented. I deem running programs from a `.env` file to be dangerous. Use a shell script if you want to do that. |
@@ -412,8 +417,86 @@ single newline.
 Accepts `.` in addition to `a`...`z`, `A`...`Z`, `0`...`9`, and `_` as
 part of variable names.
 
-`punktum` Binary
-----------------
+Python Dotenv-CLI Dialect
+-------------------------
+
+Based on this version of [core.py](https://github.com/venthur/dotenv-cli/blob/78ab62bfc33903eeee59ef483a8b1399c7d6dbd5/dotenv_cli/core.py)
+of the dotenv-cli pypi package.
+
+### Quirks
+
+This dialect uses Python str functions for many things, and as such grammar
+rules often derive from that. I.e. lines are split on `\r\n`, single `\n`,
+and on single `\r`.
+
+It only supports single line variables, because it parses one line at a time.
+
+Comments start with `#` and must be on their own line (though can be preceeded
+by white space)! Anything non-white space after a `=` is always part of the
+variable value.
+
+A key can contain anything except for `=` and white space around it will be
+stripped. But you can do:
+
+```dotenv
+ FOO  BAR! = BAZ 
+```
+
+Equivalent to this in JSON:
+
+```JSON
+{ "FOO  BAR!": "BAZ" }
+```
+
+If a key starts with `export ` (yes, including the single space) this prefix and
+any remaining heading white spaces are stripped. This of course means that
+`export =foo` will lead to an empty string, which is an OS level error for
+environment variable names, while `export=foo` is perfectly fine. For any other
+variable name spaces between it and the `=` are insignifficant.
+
+Values are also stripped of white space. If the remaining string starts or ends
+with the same kind of quotes (either `"` or `'`) those quotes are removed. If
+it's a double quoted string escape sequences are processed using this Python
+code:
+
+```Python
+value = bytes(value, "utf-8").decode("unicode-escape")
+```
+
+Meaning which escape sequences are supported is defined by Python and might
+change in a futher Python release!
+
+The [Python documentation](https://docs.python.org/3/library/codecs.html#text-encodings)
+says about this encoding:
+
+> Encoding suitable as the contents of a Unicode literal in ASCII-encoded
+> Python source code, except that quotes are not escaped. Decode from Latin-1
+> source code. Beware that Python source code actually uses UTF-8 by default.
+
+This leads to typical "UTF-8 interpreted as ISO-8859-1" errors for every double
+quoted string! Completely breaks UTF-8 support for double quoted strings. This
+dotenv file:
+
+```dotenv
+FOO=ä
+BAR="ä"
+BAZ='ä'
+```
+
+Is equivalent to this JSON:
+
+```JSON
+{ "FOO": "ä", "BAR": "Ã¤", "BAZ": "ä" }
+```
+
+For what escape sequences are actually supported see the
+[Python documentation](https://docs.python.org/3/reference/lexical_analysis.html#escape-sequences).
+
+**NOTE:** This implementation of this dialect does not implement named Unicode
+escape sequences (`\N{name}`).
+
+`punktum` Executable
+--------------------
 
 Punktum comes as a library and as a binary.
 
@@ -458,21 +541,31 @@ Optional arguments:
       --dialect=DIALECT     Overwrite DOTENV_CONFIG_DIALECT
 
 Environemnt variables:
-  DOTENV_CONFIG_PATH=FILE  (default: ".env")
-    File to use instead of .env. This can be overwritten by --file.
+  DOTENV_CONFIG_PATH=FILE
+    File to use instead of ".env".
+    This can be overwritten with --file.
+    [default: ".env"]
 
-  DOTENV_CONFIG_STRICT=true|false  (default: true)
+  DOTENV_CONFIG_STRICT=true|false
     Stop and return an error if any problem is encounterd,
     like a file is not found, an encoding error, or a syntax error.
+    This can be overwritten with --strict.
+    [default: true]
 
-  DOTENV_CONFIG_DEBUG=true|false  (default: false)
+  DOTENV_CONFIG_DEBUG=true|false
     Write debug messages to stderr if there are any problems.
+    This can be overwritten with --debug.
+    [default: false]
 
-  DOTENV_CONFIG_OVERRIDE=true|false  (default: false)
+  DOTENV_CONFIG_OVERRIDE=true|false
     Replace existing environment variables.
+    This can be overwritten with --override.
+    [default: false]
 
   DOTENV_CONFIG_ENCODING=ENCODING
-    Encoding of .env file.
+    Encoding of ".env" file.
+    This can be overwritten with --encoding.
+    [default: UTF-8]
 
     Supported values:
     - ASCII
@@ -485,6 +578,8 @@ Environemnt variables:
 
   DOTENV_CONFIG_DIALECT=DIALECT
     Dialect for the parser to use.
+    This can be overwritten with --dialect.
+    [default: Punktum]
 
     Supported values:
     - Punktum (default)
