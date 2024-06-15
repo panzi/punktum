@@ -27,7 +27,7 @@ with my limited manual test.
 | ComposeGo | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
 | GoDotenv | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems like a predecessor to the above. There are many things that aren't or aren't correctly handled by this that are better handeled by the docker-compose version. Both suffer from problems that arise from variable substitution being destinct from string literal and escape sequence parsing and by cheaping out by using regular expressions. |
 | [RubyDotenv](#ruby-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. **NOTE:** Command `$()` support is deliberately not implemented. I deem running programs from a `.env` file to be dangerous. Use a shell script if you want to do that. |
-| JavaScriptDotenv | *Not Implemented* | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. |
+| [JavaScriptDotenv](#javascript-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. The NodeJS dialect is meant to be the same as this, but of course isn't. |
 | JavaDotenv | *Not Implemented* | Compatible to [java-dotenv](https://github.com/cdimascio/dotenv-java). Yet again subtly different. |
 | Dotenvy | *Not Implemented* | Probably won't implement [dotenvy](https://github.com/allan2/dotenvy) support, since it is already a Rust crate. And it is a good dialect with a sane parser. **Use that!** |
 | [Binary](#binary-dialect) | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only uses UTF-8. |
@@ -230,9 +230,14 @@ NodeJS Dialect
 --------------
 
 Based on the [dotenv parser](https://github.com/nodejs/node/blob/v22.x/src/node_dotenv.cc)
-of NodeJS v22.
+of NodeJS v22. After [complaining about some of these quirks](https://github.com/nodejs/node/issues/53461)
+they said they'll fix it. Meaning once this is done this dialect needs to be
+adapted again. Making myself more work. 🤦
 
 ### Quirks
+
+This is meant to be compatible to the [JavaScript Dotenv Dialect](#javascript-dotenv-dialect),
+but isn't.
 
 While this dialect does support quoted values if there is any space between the
 `=` and `"` it will not parse it as a quoted value, meaning the quotes will be
@@ -248,14 +253,14 @@ Is equivalent to this in JSON:
 { "FOO": "\"BAR\"" }
 ```
 
-This dialect supports strings quoited in double quotes (`"`), single quotes (`'`)
-and back ticks (\`). These strings can be multi-line, but only in double quoted
+This dialect supports strings quoted in double quotes (`"`), single quotes (`'`)
+and back ticks (`` ` ``). These strings can be multi-line, but only in double quoted
 strings `\n` will be translated to newlines.
 
 If the second quote is missing only the current line is used as the value for
 the variable. Parsing of more variables continues in the next line!
 
-Quotes start with `#`. There doesn't need to be a space before the `#`.
+Comments start with `#`. There doesn't need to be a space before the `#`.
 
 Keys may contain *anything* except spaces (` `), including tabs and newlines.
 Meaning this:
@@ -278,11 +283,61 @@ up the parser so that the following correct line is also ignored.
 Leading `export ` will be ignored. Yes, the `export` needs to be followed by a
 space. If its a tab its used as part of the key.
 
+Accepts `\n`, `\r\n`, and even singular `\r` as line seperator by
+replacing `/\r\n?/` with `\n`. Meaning if you have a single carrige
+return or DOS line ending in a quoted string it will be replaced by a
+single newline.
+
+JavaScript Dotenv Dialect
+-------------------------
+
+Based this version on [main.js](https://github.com/motdotla/dotenv/blob/8ab33066f90a20445d3c41e4fafba6c929c5e1a5/lib/main.js)
+from the dotenv npm package.
+
+### Quirks
+
+This dialect supports strings quoted in double quotes (`"`), single quotes (`'`)
+and back ticks (`` ` ``). These strings can be multi-line, but only in double
+quoted strings `\n` and `\r` will be translated to newlines and carrige returns.
+
+It doesn't process any other escape sequences, even though the regular expression
+used to match quoted strings implies the existence of `\"`, `\'`, and `` \` `` in
+the respective quoted stirngs. If a value does not match such a quoted string
+literal correctly it will be interpreted as an unquoted string and only be read
+to the end of the line.
+
+However, later the decision on whether to replace `\r` and `\n` is made by simply
+checking if the first character of the matched string was a double quote, not if
+the double quote kind of regular expression had matched. Similarly the quotes
+around a value are stripped if the first and last character are matching quotes,
+again not if the reqular expression (that has the not processed escaped quote in
+it) had matched.
+
+Instead of `=` this dialect also accepts `:`, but only if there is no
+space between it and the variable name.
+
+A comment starts with `#` even if it touches a word on its left side.
+
+Lines with syntax errors (i.e. no `=`) are silently ignored, but in contrast to
+the NodeJS dialect it won't trip up the parser and the next line is correctly
+parsed (if it doesn't have have syntax error itself).
+
+Accepts `\n`, `\r\n`, and even singular `\r` as line seperator by
+replacing `/\r\n?/` with `\n`. Meaning if you have a single carrige
+return or DOS line ending in a quoted string it will be replaced by a
+single newline.
+
+Leading `export` will be ignored. The `export` and the following variable name
+can be separated by any kind of white space.
+
+Accepts `.` and `-` in addition to `a`...`z`, `A`...`Z`, and `0`...`9` as
+part of variable names.
+
 Ruby Dotenv Dialect
 -------------------
 
 Based on this version of [parser.rb](https://github.com/bkeepers/dotenv/blob/27c80ed122f9bbe403033282e922d74ca717d518/lib/dotenv/parser.rb)
-and [substitution/variable.rb](https://github.com/bkeepers/dotenv/blob/27c80ed122f9bbe403033282e922d74ca717d518/lib/dotenv/substitutions/variable.rb).
+and [substitution/variable.rb](https://github.com/bkeepers/dotenv/blob/27c80ed122f9bbe403033282e922d74ca717d518/lib/dotenv/substitutions/variable.rb) of the dotenv Ruby gem.
 Command substitution is deliberately not implemented.
 
 ### Quirks
@@ -349,7 +404,10 @@ if the listed keys exist in the environment. If not an error is raised.
 Instead of `=` this dialect also accepts `:`, but only if there is no
 space between it and the variable name.
 
-Accepts `\n`, `\r\n`, and even singular `\r` as line seperator.
+Accepts `\n`, `\r\n`, and even singular `\r` as line seperator by
+replacing `/\r\n?/` with `\n`. Meaning if you have a single carrige
+return or DOS line ending in a quoted string it will be replaced by a
+single newline.
 
 Accepts `.` in addition to `a`...`z`, `A`...`Z`, `0`...`9`, and `_` as
 part of variable names.
