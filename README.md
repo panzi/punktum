@@ -249,7 +249,7 @@ Is equivalent to this in JSON:
 ```
 
 This dialect supports strings quoited in double quotes (`"`), single quotes (`'`)
-and back ticks (`\``). These strings can be multi-line, but only in double quoted
+and back ticks (\`). These strings can be multi-line, but only in double quoted
 strings `\n` will be translated to newlines.
 
 If the second quote is missing only the current line is used as the value for
