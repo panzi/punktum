@@ -27,7 +27,7 @@ Optional arguments:
   -p, --print-env           Instead of running a command print the built environment
                             in a syntax compatible to Punktum and bash.
       --sorted              Sort printed environment variables for reproducible output.
-      --export              Add 'export ' prefix to every printed environment variable.
+      --export              Add \"export \" prefix to every printed environment variable.
       --strict=bool         Overwrite DOTENV_CONFIG_STRICT
       --debug=bool          Overwrite DOTENV_CONFIG_DEBUG
       --override=bool       Overwrite DOTENV_CONFIG_OVERRIDE

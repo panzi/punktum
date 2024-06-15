@@ -187,7 +187,6 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
         }
 
         let value_slice = &parser.buf[value_start..value_end];
-        // eprintln!(">>> {}={:?}", &parser.buf[key_start..key_end], value_slice);
 
         let value;
         if value_slice.len() > 1 && value_slice.starts_with('\'') && value_slice.ends_with('\'') {
@@ -198,7 +197,6 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
             value = perform_substitutions(&unescape_single_unquoted(value_slice.trim_end_matches(|ch| matches!(ch, '\t' | '\x0B' | '\x0C' | ' '))), env.as_get_env());
         }
 
-        // eprintln!("set {}={:?}", &parser.buf[key_start..key_end], value);
         options.set_var_cut_null(env, parser.buf[key_start..key_end].as_ref(), value.as_ref());
 
         parser.skip_ws_inline();
@@ -255,8 +253,6 @@ fn perform_substitutions(mut src: &str, env: &dyn GetEnv) -> String {
             if src.starts_with("${") {
                 var_start += 1;
             }
-            // TODO: parse, but don't execute $()
-            // TODO: be loud about the fact that $() isn't supported?
             let var_end = find_substvar_end(src, var_start);
             if var_start == var_end {
                 // ignore syntax error, like the original

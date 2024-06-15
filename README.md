@@ -21,16 +21,16 @@ with my limited manual test.
 
 | Dialect | Status | Description |
 |:-|:-:|:-|
-| Punktum | Works | Crazy dialect I made up. More details below. |
-| NodeJS  | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
+| [Punktum](#punktum-dialect) | Works | Crazy dialect I made up. More details below. |
+| [NodeJS](#nodejs-dialect) | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
 | PythonDotenvCLI | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli) pypi package. There seem to be encoding errors in the Python version? Interpreting UTF-8 as ISO-8859-1? |
 | ComposeGo | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
 | GoDotenv | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems like a predecessor to the above. There are many things that aren't or aren't correctly handled by this that are better handeled by the docker-compose version. Both suffer from problems that arise from variable substitution being destinct from string literal and escape sequence parsing and by cheaping out by using regular expressions. |
-| RubyDotenv | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. **NOTE:** Command `$()` support is deliberately not implemented. I deem running programs from a `.env` file to be dangerous. Use a shell script if you want to do that. |
+| [RubyDotenv](#ruby-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. **NOTE:** Command `$()` support is deliberately not implemented. I deem running programs from a `.env` file to be dangerous. Use a shell script if you want to do that. |
 | JavaScriptDotenv | *Not Implemented* | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. |
 | JavaDotenv | *Not Implemented* | Compatible to [java-dotenv](https://github.com/cdimascio/dotenv-java). Yet again subtly different. |
 | Dotenvy | *Not Implemented* | Probably won't implement [dotenvy](https://github.com/allan2/dotenvy) support, since it is already a Rust crate. And it is a good dialect with a sane parser. **Use that!** |
-| Binary | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only uses UTF-8. |
+| [Binary](#binary-dialect) | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only uses UTF-8. |
 
 I might not implement any more dialects than I have right now.
 
@@ -114,14 +114,17 @@ export EXPORT_IGNORED=FOO BAR
 
 ### Syntax Definition
 
+DOS line endings (`\r\n`) are converted to Unix line endings (`\n`) before
+parsing, but single carrige returns (`\r`) are left as-is.
+
 ```plain
-PUNKTUM       := { ( VAR_ASSIGN | VAR_IMPORT ) "\n" }
-VAR_ASSIGN    := NAME "=" [ VALUE ]
+PUNKTUM       := { { WS } [ VAR_ASSIGN | VAR_IMPORT ] { WS } [ COMMENT ] ( "\n" | EOF ) }
+VAR_ASSIGN    := NAME { WS } "=" { WS } [ VALUE ]
 VAR_IMPORT    := NAME
 NAME          := NAME_CHAR { NAME_CHAR }
 NAME_CHAR     := "a"..."z" | "A"..."Z" | "0"..."9" | "_"
 VALUE         := { DOUBLE_QUOTED | SINGLE_QUOTED | UNQUOTED }
-DOUBLE_QUOTED := '"' { ESCAPE_SEQ | NOT('"') | VAR_SUBST } '"'
+DOUBLE_QUOTED := '"' { ESCAPE_SEQ | NOT('"' | "\") | VAR_SUBST } '"'
 SINGLE_QUOTED := "'" { NOT("'") } "'"
 UNQUOTED      := { NOT('"' | "'" | "$" | "\n" | "#") | VAR_SUBST }
 VAR_SUBST     := "$" NAME | "${" NAME [ ":?" | "?" | ":-" | "-" | ":+" | "+" ] VALUE "}"
@@ -129,6 +132,7 @@ ESCAPE_SEQ    := "\" ( "\" | '"' | "'" | "$" | "r" | "n" | "t" | "f" | "b" | "\n
                  UTF16_ESC_SEQ | UTF32_ESC_SEQ
 UTF16_ESC_SEQ := "\u" HEX*4
 UTF32_ESC_SEQ := "\U" HEX*6
+WS            := "\t" | "\x0C" | "\r" | " "
 COMMENT       := "#" { NOT("\n") }
 ```
 
@@ -142,7 +146,7 @@ A value consists of a sequence of quoted and unquoted strings.
 If not quoted, spaces around a value are trimmed. A comment starts with `#` even
 if it touches a word on its left side.
 
-Both single and double quoted strings can be multiline. Variables can be refernced
+Both single and double quoted strings can be multiline. Variables can be referenced
 in unquoted and double quoted strings. Escape sequences are only evaluated inside
 of double quoted strings. (Should they be also evaluated in unquoted values?)
 
@@ -222,10 +226,140 @@ for (key, value) in &env {
 }
 ```
 
+NodeJS Dialect
+--------------
+
+Based on the [dotenv parser](https://github.com/nodejs/node/blob/v22.x/src/node_dotenv.cc)
+of NodeJS v22.
+
+### Quirks
+
+While this dialect does support quoted values if there is any space between the
+`=` and `"` it will not parse it as a quoted value, meaning the quotes will be
+included in the output. I.e. this in `.env`:
+
+```dotenv
+FOO= "BAR"
+```
+
+Is equivalent to this in JSON:
+
+```JSON
+{ "FOO": "\"BAR\"" }
+```
+
+This dialect supports strings quoited in double quotes (`"`), single quotes (`'`)
+and back ticks (`\``). These strings can be multi-line, but only in double quoted
+strings `\n` will be translated to newlines.
+
+If the second quote is missing only the current line is used as the value for
+the variable. Parsing of more variables continues in the next line!
+
+Quotes start with `#`. There doesn't need to be a space before the `#`.
+
+Keys may contain *anything* except spaces (` `), including tabs and newlines.
+Meaning this:
+
+```dotenv
+FOO#=1
+BAR
+=2
+```
+
+Is equivalent with this JSON:
+
+```JSON
+{ "FOO#": "1", "BAR\n": "2" }
+```
+
+Lines with syntax errors (i.e. no `=`) are silently ignored, but they will trip
+up the parser so that the following correct line is also ignored.
+
+Leading `export ` will be ignored. Yes, the `export` needs to be followed by a
+space. If its a tab its used as part of the key.
+
+Ruby Dotenv Dialect
+-------------------
+
+Based on this version of [parser.rb](https://github.com/bkeepers/dotenv/blob/27c80ed122f9bbe403033282e922d74ca717d518/lib/dotenv/parser.rb)
+and [substitution/variable.rb](https://github.com/bkeepers/dotenv/blob/27c80ed122f9bbe403033282e922d74ca717d518/lib/dotenv/substitutions/variable.rb).
+Command substitution is deliberately not implemented.
+
+### Quirks
+
+This dialect supports variable and command substitution. (The latter
+deliberately not implemented in Punktum.) Command substitution is problematic
+on its own, but the way it is implemented in Ruby dotenv is especially
+problematic since its done in two passes. First variable references like
+`$FOO` and `${BAR}` are substituted. Then in the resulting string commands
+like `$(rm -rf /)` are substituted. This means if any of the variables
+contain command syntax in literal form it will be executed in the command
+pass. It can even be split over multiple variables. E.g. this `.env` file:
+
+```dotenv
+FOO='$'
+BAR='(date)'
+BAZ="$FOO$BAR"
+```
+
+Used like this:
+
+```bash
+dotenv -f test.env ruby -e 'puts ENV.select {|k| %w(FOO BAR BAZ).include? k}'
+```
+
+Will give output like this:
+
+```Ruby
+{"FOO"=>"$", "BAR"=>"(date)", "BAZ"=>"Fr 14 Jun 2024 17:49:33 CEST"}
+```
+
+Personally I consider this as a code execution vulnerability. It is not
+unthinkable that an environment variable used in a substitution contains
+a string controlled by a user who injects a command this way.
+
+Another minor quirk is that `{` and `}` in variable substitution don't
+need to be balanced. `${FOO`, `$FOO}`, `${FOO}`, and `$FOO` all do the
+same.
+
+The dotenv file is parsed with a regular expression. Anything not
+matching is simply silently ignored.
+
+The regular expression handles escapes in when tokenizing the file
+that way, but if the quoted string part of the regular expression
+fails the no-quote part will still match. It is not checked how the
+value was matched, only if it starts and ends in the same kind of
+quote in order to determine how to process the value.
+
+Quoted strings can be multiline. In double and single quoted
+strings any backslashes of escape sequences are simply removed.
+Meaning `\n` becomes `n`. However, if the environment variable
+`DOTENV_LINEBREAK_MODE` is set to `legacy` (either in the currently
+created environment or if it is unset there also the system
+environment) then `\n` and `\r` in double quoted strings are
+replaced with newlines and carrige returns.
+
+Variable and command substitution is performed in double quoted and
+non-quoted strings.
+
+Lines in the form of `export FOO BAR BAZ` are interpreted as checking
+if the listed keys exist in the environment. If not an error is raised.
+
 `punktum` Binary
 ----------------
 
-Punktum comes as a library and as a binary. Usage of the binary:
+Punktum comes as a library and as a binary.
+
+**NOTE:** On Windows (or any non-Unix operating system supported by Rust) there is no
+`exec()` available. Meaning there is no way to replace the currently executing program
+with another. So instead the command is spawned as a sub-process and it's exit code
+is passed through at the end. However, forwarding things like Ctrl+C (or killing
+sub-processes when the parent exits) is not straight forward under Windows. This would
+need to be implemented with a lot of custom unsafe code calling Win32 functions, so I
+didn't do it. This means if you kill the punktum process the child process will keep
+running. I think. I haven't tested it under Windows, I use Linux.
+
+Usage of the binary:
 
 ```plain
 usage: punktum [--file=PATH...] [--replace] [--] command [args...]
@@ -249,7 +383,7 @@ Optional arguments:
   -p, --print-env           Instead of running a command print the built environment
                             in a syntax compatible to Punktum and bash.
       --sorted              Sort printed environment variables for reproducible output.
-      --export              Add 'export ' prefix to every printed environment variable.
+      --export              Add "export " prefix to every printed environment variable.
       --strict=bool         Overwrite DOTENV_CONFIG_STRICT
       --debug=bool          Overwrite DOTENV_CONFIG_DEBUG
       --override=bool       Overwrite DOTENV_CONFIG_OVERRIDE
