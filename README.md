@@ -124,10 +124,10 @@ VAR_IMPORT    := NAME
 NAME          := NAME_CHAR { NAME_CHAR }
 NAME_CHAR     := "a"..."z" | "A"..."Z" | "0"..."9" | "_"
 VALUE         := { DOUBLE_QUOTED | SINGLE_QUOTED | UNQUOTED }
-DOUBLE_QUOTED := '"' { ESCAPE_SEQ | NOT('"' | "\") | VAR_SUBST } '"'
+DOUBLE_QUOTED := '"' { ESCAPE_SEQ | NOT('"' | "\" | "$") | VAR_SUBST } '"'
 SINGLE_QUOTED := "'" { NOT("'") } "'"
 UNQUOTED      := { NOT('"' | "'" | "$" | "\n" | "#") | VAR_SUBST }
-VAR_SUBST     := "$" NAME | "${" NAME [ ":?" | "?" | ":-" | "-" | ":+" | "+" ] VALUE "}"
+VAR_SUBST     := "$" NAME | "${" NAME [ ( ":?" | "?" | ":-" | "-" | ":+" | "+" ) VALUE ] "}"
 ESCAPE_SEQ    := "\" ( "\" | '"' | "'" | "$" | "r" | "n" | "t" | "f" | "b" | "\n" ) |
                  UTF16_ESC_SEQ | UTF32_ESC_SEQ
 UTF16_ESC_SEQ := "\u" HEX*4
