@@ -351,6 +351,9 @@ space between it and the variable name.
 
 Accepts `\n`, `\r\n`, and even singular `\r` as line seperator.
 
+Accepts `.` in addition to `a`...`z`, `A`...`Z`, `0`...`9`, and `_` as
+part of variable names.
+
 `punktum` Binary
 ----------------
 
