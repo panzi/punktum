@@ -316,7 +316,8 @@ Will give output like this:
 
 Personally I consider this as a code execution vulnerability. It is not
 unthinkable that an environment variable used in a substitution contains
-a string controlled by a user who injects a command this way.
+a string controlled by a user who injects a command this way. See
+[this bug report](https://github.com/bkeepers/dotenv/issues/507).
 
 Another minor quirk is that `{` and `}` in variable substitution don't
 need to be balanced. `${FOO`, `$FOO}`, `${FOO}`, and `$FOO` all do the
