@@ -200,14 +200,19 @@ pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         }
 
         let value_slice = &parser.buf[value_start..value_end];
+        let quote = value_slice.chars().next().unwrap_or('\0');
 
-        let value;
-        if value_slice.len() > 1 && value_slice.starts_with('\'') && value_slice.ends_with('\'') {
+        let mut value;
+        if value_slice.len() > 1 && matches!(quote, '"' | '\'' | '`') && value_slice.ends_with(quote) {
             value = parser.buf[value_start + 1..value_end - 1].to_owned();
-        } else if value_slice.len() > 1 && value_slice.starts_with('"') && value_slice.ends_with('"') {
-            value = unescape_double_quoted(&parser.buf[value_start + 1..value_end - 1]);
         } else {
             value = value_slice.trim_end_matches(|ch| matches!(ch, '\t' | '\x0B' | '\x0C' | ' ')).to_owned();
+        }
+
+        if quote == '"' {
+            // yes, the original also applies unescape for a sorta
+            // unquoted string that starts with a double quote
+            value = unescape_double_quoted(&value);
         }
 
         options.set_var_cut_null(env, parser.buf[key_start..key_end].as_ref(), value.as_ref());
