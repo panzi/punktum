@@ -337,8 +337,13 @@ Is equivalent to this JSON:
 { "FOO": "BAR" }
 ```
 
-**FIXME:** This quirk isn't correctly replicated in the Punktum implementation
-of this dialect.
+This also means that this is parsed the same even though one might expect
+it to be the variable is set check syntax:
+
+```dotenv
+export FOO
+=BAR
+```
 
 Lines with syntax errors (i.e. no `=`) are silently ignored, but in contrast to
 the NodeJS dialect it won't trip up the parser and the next line is correctly

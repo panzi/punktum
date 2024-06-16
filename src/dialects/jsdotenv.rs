@@ -33,20 +33,18 @@ pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         let mut key_end = find_vardef_end(&parser.buf, parser.index);
 
         parser.index = key_end;
-        parser.skip_ws_inline();
+        parser.skip_ws();
 
-        let mut export = false;
         if parser.buf[parser.index..].starts_with(is_vardef) && &parser.buf[key_start..key_end] == "export" {
-            export = true;
             key_start = parser.index;
             key_end = find_vardef_end(&parser.buf, parser.index);
             parser.index = key_end;
-            parser.skip_ws_inline();
+            parser.skip_ws();
         }
 
         if key_start == key_end {
             let line_end = find_line_end(&parser.buf, parser.index);
-            let column = key_end - parser.line_start + 1;
+            let column = key_end - find_line_start(&parser.buf, key_end) + 1;
             if options.debug {
                 let line = &parser.buf[parser.line_start..line_end];
                 if let Some(ch) = parser.buf[key_start..].chars().next() {
@@ -65,66 +63,14 @@ pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
         }
 
         let tail = &parser.buf[parser.index..];
-        if export && tail.starts_with(is_vardef) {
-            // check that variables are set
-            loop {
-                let key = &parser.buf[key_start..key_end];
-                if env.get(key.as_ref()).is_none() {
-                    let line_end = find_line_end(&parser.buf, parser.index);
-                    let column = key_end - parser.line_start + 1;
-                    if options.debug {
-                        let line = &parser.buf[parser.line_start..line_end];
-                        eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: variable {key:?} is unset in line: {}",
-                            parser.lineno, column, line);
-                    }
-                    if options.strict {
-                        return Err(Error::syntax_error(parser.lineno, column));
-                    }
-                }
-
-                parser.skip_ws_inline();
-
-                if parser.buf[parser.index..].starts_with(|ch| ch == '#' || ch == '\n') {
-                    parser.index = find_line_end(&parser.buf, parser.index);
-                    break;
-                }
-
-                if parser.index >= parser.buf.len() {
-                    break;
-                }
-
-                key_start = parser.index;
-                key_end = find_vardef_end(&parser.buf, parser.index);
-                parser.index = key_end;
-
-                if key_start == key_end {
-                    let line_end = find_line_end(&parser.buf, parser.index);
-                    let column = key_end - parser.line_start + 1;
-                    if options.debug {
-                        let line = &parser.buf[parser.line_start..line_end];
-                        if let Some(ch) = parser.buf[key_start..].chars().next() {
-                            eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected variable name, found {:?}: {}",
-                                parser.lineno, column, ch, line);
-                        } else {
-                            eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: unexpected end of file: {}",
-                                parser.lineno, column, line);
-                        }
-                    }
-                    if options.strict {
-                        return Err(Error::syntax_error(parser.lineno, column));
-                    }
-                    parser.index = line_end;
-                    break;
-                }
-            }
-            continue;
-        } else if !tail.starts_with(|ch| ch == '=' || ch == ':') {
+        if !tail.starts_with(|ch| ch == '=' || ch == ':') {
             let line_end = find_line_end(&parser.buf, parser.index);
             let column = parser.index - parser.line_start + 1;
+            let ch = tail.chars().next();
 
             if options.debug {
                 let line = &parser.buf[parser.line_start..line_end];
-                if let Some(ch) = tail.chars().next() {
+                if let Some(ch) = ch {
                     eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected '=' or ':', found {:?}: {}",
                         parser.lineno, column, ch, line);
                 } else {
@@ -136,7 +82,12 @@ pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
             if options.strict {
                 return Err(Error::syntax_error(parser.lineno, column));
             }
-            parser.index = line_end;
+            let ch = ch.unwrap_or('\0');
+            if key_end < parser.line_start && is_vardef(ch) {
+                // start parsing a variable definition from here
+            } else {
+                parser.index = line_end;
+            }
             continue;
         } else if parser.index != key_end && tail.starts_with(':') {
             let line_end = find_line_end(&parser.buf, parser.index);
@@ -356,4 +307,9 @@ fn fix_newlines(buf: &mut String) {
 
         index = cr_index + 1;
     }
+}
+
+#[inline]
+fn find_line_start(src: &str, index: usize) -> usize {
+    src[..index].rfind('\n').unwrap_or(0)
 }
