@@ -442,13 +442,13 @@ fn is_vardef(ch: char) -> bool {
 
 #[inline]
 fn find_vardef_end(src: &str, index: usize) -> usize {
-    let len = src.len();
-    if index >= len {
-        return len;
-    }
-    src[index..].find(|ch| !is_vardef(ch)).
-        map(|pos| pos + index).
-        unwrap_or(len)
+    let Some(slice) = src.get(index..) else {
+        return src.len();
+    };
+    let Some(pos) = slice.find(|ch| !is_vardef(ch)) else {
+        return src.len();
+    };
+    pos + index
 }
 
 #[inline]
@@ -458,43 +458,44 @@ fn is_substvar(ch: char) -> bool {
 
 #[inline]
 fn find_substvar_end(src: &str, index: usize) -> usize {
-    let len = src.len();
-    if index >= len {
-        return len;
-    }
-    src[index..].find(|ch| !is_substvar(ch)).
-        map(|pos| pos + index).
-        unwrap_or(len)
+    let Some(slice) = src.get(index..) else {
+        return src.len();
+    };
+    let Some(pos) = slice.find(|ch| !is_substvar(ch)) else {
+        return src.len();
+    };
+    pos + index
 }
 
 #[inline]
 fn find_value_end(src: &str, index: usize) -> usize {
-    let len = src.len();
-    if index >= len {
-        return len;
-    }
-    src[index..].find(|ch| ch == '\n' || ch == '#').
-        map(|pos| pos + index).
-        unwrap_or(len)
+    let Some(slice) = src.get(index..) else {
+        return src.len();
+    };
+    let Some(pos) = slice.find(|ch| ch == '\n' || ch == '#') else {
+        return src.len();
+    };
+    pos + index
 }
 
 #[inline]
 fn find_line_end(src: &str, index: usize) -> usize {
-    let len = src.len();
-    if index >= len {
-        return len;
-    }
-    src[index..].find('\n').
-        map(|pos| pos + index).
-        unwrap_or(len)
+    let Some(slice) = src.get(index..) else {
+        return src.len();
+    };
+    let Some(pos) = slice.find('\n') else {
+        return src.len();
+    };
+    pos + index
 }
 
 fn fix_newlines(buf: &mut String) {
     let mut index = 0;
     loop {
-        let Some(cr_index) = buf[index..].find('\r').map(|pos| pos + index) else {
+        let Some(pos) = buf[index..].find('\r') else {
             break;
         };
+        let cr_index = pos + index;
 
         if buf[cr_index..].starts_with("\r\n") {
             buf.remove(cr_index);

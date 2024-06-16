@@ -9,32 +9,29 @@ fn is_word(ch: char) -> bool {
 
 #[inline]
 fn skip_ws(src: &str, index: usize) -> usize {
-    let len = src.len();
-    if index >= len {
-        return len;
-    }
-    src[index..].find(|ch: char| !ch.is_ascii_whitespace()).
-        map(|pos| pos + index).
-        unwrap_or(len)
+    let Some(slice) = src.get(index..) else {
+        return src.len();
+    };
+    let Some(pos) = slice.find(|ch: char| !ch.is_ascii_whitespace()) else {
+        return src.len();
+    };
+    pos + index
 }
 
 #[inline]
 fn find_word_end(src: &str, index: usize) -> usize {
-    let len = src.len();
-    if index >= len {
-        return len;
-    }
-    src[index..].find(|ch: char| !is_word(ch)).
-        map(|pos| pos + index).
-        unwrap_or(len)
+    let Some(slice) = src.get(index..) else {
+        return src.len();
+    };
+    let Some(pos) = slice.find(|ch: char| !is_word(ch)) else {
+        return src.len();
+    };
+    pos + index
 }
 
 #[inline]
 fn char_at(src: &str, index: usize) -> Option<char> {
-    if index >= src.len() {
-        return None;
-    }
-    src[index..].chars().next()
+    src.get(index..)?.chars().next()
 }
 
 pub fn config_punktum(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
