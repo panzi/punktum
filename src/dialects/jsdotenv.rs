@@ -131,7 +131,7 @@ pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
                     if tail.starts_with('#') {
                         parser.index = find_line_end(&parser.buf, parser.index);
                     } else if !tail.is_empty() && !tail.starts_with('\n') {
-                        // back out of parsing a quoted striung and fallback to normal string
+                        // back out of parsing a quoted string and fallback to normal string
                         quote = false;
                         parser.line_start = line_start;
                         parser.lineno = lineno;
@@ -166,30 +166,32 @@ pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
             value = unescape_double_quoted(&value);
         }
 
-        options.set_var_cut_null(env, parser.buf[key_start..key_end].as_ref(), value.as_ref());
-
         parser.skip_ws_inline();
-        let Some(ch) = parser.buf[parser.index..].chars().next() else {
-            break;
-        };
+        if let Some(ch) = parser.buf[parser.index..].chars().next() {
+            if ch == '#' {
+                parser.index = find_line_end(&parser.buf, parser.index);
+            } else if ch != '\n' {
+                let line_end = find_line_end(&parser.buf, parser.index);
+                let column = parser.index - parser.line_start + 1;
 
-        if ch == '#' {
-            parser.index = find_line_end(&parser.buf, parser.index);
-        } else if ch != '\n' {
-            let line_end = find_line_end(&parser.buf, parser.index);
-            let column = parser.index - parser.line_start + 1;
+                if options.debug {
+                    let line = &parser.buf[parser.line_start..line_end];
+                    eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected line end, found {:?}: {}",
+                        parser.lineno, column, ch, line);
+                }
 
-            if options.debug {
-                let line = &parser.buf[parser.line_start..line_end];
-                eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: expected line end, found {:?}: {}",
-                    parser.lineno, column, ch, line);
+                if options.strict {
+                    return Err(Error::syntax_error(parser.lineno, column));
+                }
+                parser.index = line_end;
+
+                // Don't set the already parsed environment variable, because
+                // in the original the regular expression wouldn't have matched.
+                continue;
             }
-
-            if options.strict {
-                return Err(Error::syntax_error(parser.lineno, column));
-            }
-            parser.index = line_end;
         }
+
+        options.set_var_cut_null(env, parser.buf[key_start..key_end].as_ref(), value.as_ref());
     }
 
     Ok(())

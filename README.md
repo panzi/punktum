@@ -30,7 +30,7 @@ with my limited manual test.
 | [NodeJS](#nodejs-dialect) | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
 | [PythonDotenvCLI](#python-dotenv-cli-dialect) | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli) pypi package. There seem to be encoding errors in the Python version? Interpreting UTF-8 as ISO-8859-1? |
 | [ComposeGo](#composego-dialect) | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
-| [GoDotenv](#godotenv-dialect) | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems like a predecessor to the above. |
+| [GoDotenv](#godotenv-dialect) | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems to be a predecessor to the above. |
 | [RubyDotenv](#ruby-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. **NOTE:** Command `$()` support is deliberately not implemented. I deem running programs from a `.env` file to be dangerous. Use a shell script if you want to do that. |
 | [JavaScriptDotenv](#javascript-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. The NodeJS dialect is meant to be the same as this, but of course isn't. |
 | JavaDotenv | *Not Implemented* | Compatible to [java-dotenv](https://github.com/cdimascio/dotenv-java). Yet again subtly different. |
