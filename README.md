@@ -323,6 +323,23 @@ space between it and the variable name.
 
 A comment starts with `#` even if it touches a word on its left side.
 
+The way the used regular expression works means that there can be a newline
+between the varialbe name and `=`. Meaning this:
+
+```dotenv
+FOO
+=BAR
+```
+
+Is equivalent to this JSON:
+
+```JSON
+{ "FOO": "BAR" }
+```
+
+**FIXME:** This quirk isn't correctly replicated in the Punktum implementation
+of this dialect.
+
 Lines with syntax errors (i.e. no `=`) are silently ignored, but in contrast to
 the NodeJS dialect it won't trip up the parser and the next line is correctly
 parsed (if it doesn't have have syntax error itself).
