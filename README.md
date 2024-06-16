@@ -492,8 +492,8 @@ Is equivalent to this JSON:
 For what escape sequences are actually supported see the
 [Python documentation](https://docs.python.org/3/reference/lexical_analysis.html#escape-sequences).
 
-**NOTE:** This implementation of this dialect does not implement named Unicode
-escape sequences (`\N{name}`).
+**NOTE:** The Punktum implementation of this dialect does not implement *named*
+Unicode escape sequences (`\N{name}`).
 
 `punktum` Executable
 --------------------

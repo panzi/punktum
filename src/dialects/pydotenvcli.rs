@@ -115,7 +115,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                         value = &value[1..];
                     }
                     '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7' => {
-                        if value.len() < 4 {
+                        if value.len() < 3 {
                             if options.debug {
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
                             }
@@ -125,7 +125,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                             continue;
                         }
 
-                        let arg = &value[1..4];
+                        let arg = &value[..3];
                         let Ok(ch) = u8::from_str_radix(arg, 8) else {
                             if options.debug {
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
@@ -136,7 +136,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                             continue;
                         };
                         value_buf.push(ch as char);
-                        value = &value[4..];
+                        value = &value[3..];
                     }
                     'x' => {
                         if value.len() < 3 {
