@@ -3,7 +3,6 @@ use std::{borrow::Cow, io::BufRead, num::NonZeroU8, path::Path};
 use crate::{env::GetEnv, Env, Error, Options, Result, DEBUG_PREFIX};
 
 // trying to be compatible to: https://github.com/compose-spec/compose-go/blob/main/dotenv/parser.go
-// maybe also implement this? https://github.com/joho/godotenv/blob/v1.5.1/parser.go
 pub fn config_composego(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
 

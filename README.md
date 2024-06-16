@@ -29,8 +29,8 @@ with my limited manual test.
 | [Punktum](#punktum-dialect) | Works | Crazy dialect I made up. More details below. |
 | [NodeJS](#nodejs-dialect) | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
 | [PythonDotenvCLI](#python-dotenv-cli-dialect) | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli) pypi package. There seem to be encoding errors in the Python version? Interpreting UTF-8 as ISO-8859-1? |
-| ComposeGo | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
-| GoDotenv | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems like a predecessor to the above. There are many things that aren't or aren't correctly handled by this that are better handeled by the docker-compose version. Both suffer from problems that arise from variable substitution being distinct from string literal and escape sequence parsing and by cheaping out by using regular expressions. |
+| [ComposeGo](#composego-dialect) | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
+| [GoDotenv](#godotenv-dialect) | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems like a predecessor to the above. |
 | [RubyDotenv](#ruby-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. **NOTE:** Command `$()` support is deliberately not implemented. I deem running programs from a `.env` file to be dangerous. Use a shell script if you want to do that. |
 | [JavaScriptDotenv](#javascript-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. The NodeJS dialect is meant to be the same as this, but of course isn't. |
 | JavaDotenv | *Not Implemented* | Compatible to [java-dotenv](https://github.com/cdimascio/dotenv-java). Yet again subtly different. |
@@ -296,7 +296,7 @@ single newline.
 JavaScript Dotenv Dialect
 -------------------------
 
-Based this version on [main.js](https://github.com/motdotla/dotenv/blob/8ab33066f90a20445d3c41e4fafba6c929c5e1a5/lib/main.js)
+Based on version of [main.js](https://github.com/motdotla/dotenv/blob/8ab33066f90a20445d3c41e4fafba6c929c5e1a5/lib/main.js)
 from the dotenv npm package.
 
 ### Quirks
@@ -519,6 +519,80 @@ the string as the Unicode that it is.
 
 **NOTE:** The Punktum implementation of this dialect doesn't implement *named*
 Unicode escape sequences (`\N{name}`).
+
+ComposeGo Dialect
+-----------------
+
+Based on these versions of [parser.go](https://github.com/compose-spec/compose-go/blob/35c575c758afd2a8363bd47290c3ddec0d23ebaf/dotenv/parser.go)
+and [template.go](https://github.com/compose-spec/compose-go/blob/e1496cd905b20b799fa3acecefed8056338961a2/template/template.go)
+of compose-go, the Go implementations of docker-compose.
+
+### Quirks
+
+Accepts `.`, `-`, `_`, `[`, and `]` in addition to `a`...`z`, `A`...`Z`, and
+`0`...`9` as part of variable names.
+
+Also accepts `:` instead of `=`, which it calls "yaml-style value declaration".
+
+Comments start with `#`, but when they're not in their own line they need to
+be separated by a space (` `) from the preceeding value.
+
+Similar to the Python version this uses a library function to parse escape
+sequences ([`strconv.UnquoteChar()`](https://pkg.go.dev/strconv#UnquoteChar),
+[source](https://github.com/golang/go/blob/fe36ce669c1a452d2b0e81108a7e07674b50692a/src/strconv/quote.go#L259)),
+but only passes the escape sequences `\a`, `\b`, `\c` (this seems to be a bug,
+since no such escape sequence is implemented by that function), `\f`, `\n`,
+`\r`, `\t`, `\v`, `\\` and octal escape sequences to that function. Further
+it manually also parses `\$` and manually requires octal escape sequences
+to always be prefixed by `\0`.
+
+This dialect considers the following code points as (inline) whitespace:
+
+| C | Unicode | Description |
+|:-|:-|:-|
+| `\t`   | U+0009 | horizontal tab |
+| `\v`   | U+000B | vertical tab |
+| `\f`   | U+000C | form feed |
+| `\r`   | U+000D | carrige return |
+| ` `    | U+0020 | space |
+| `\x85` | U+0085 | next line |
+| `\xA0` | U+00A0 | no-break space |
+
+This dialect supports single quoted (`'`), double quoted (`"`), and unquoted
+values. In double quoted and unquoted values variable substitition is performed.
+
+This substitution syntax supports fallback and error messages similar to bash.
+Need to investigate im more detail how variable substitution in the
+fallback/message part is performed. Given that the whole variable is parsed with
+a simple regular expression I think it's not possible it has nested braced
+variable references in that part. But simple un-braced references it seems to
+support. It might be because of greedy `.*` expressions it matches too much and
+doesn't even support two braced variables in one string? Need to test that.
+
+Stripps `export` if followed by white space from the start of parsed lines. Meaning
+it doesn't support variables named `export`. (Need to test that.)
+
+GoDotenv Dialect
+----------------
+
+Based on this version of [parser.go](https://github.com/joho/godotenv/blob/v1.5.1/parser.go)
+from godotenv.
+
+This seems like a predecessor to the [ComposeGo](#composego-dialect) dialect.
+
+### Quirks
+
+There are many things that aren't or aren't correctly handled by this that are
+better handeled by the docker-compose version. Both suffer from problems that
+arise from variable substitution being distinct from string literal and escape
+sequence parsing and by cheaping out by using regular expressions.
+
+This dialect supports single quoted (`'`), double quoted (`"`), and unquoted
+values. Single quoted strings may contain `\'` and `\\`, double quoted values may
+contain `\"`, `\\`, `\n`, and `\r`, which is evaluated appropriately.
+
+It supports the same (inline) white space as the [ComposeGo](#composego-dialect)
+dialect.
 
 `punktum` Executable
 --------------------
