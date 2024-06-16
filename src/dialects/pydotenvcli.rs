@@ -70,7 +70,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                 value = &value[index + 1..];
                 let Some(ch) = value.chars().next() else {
                     if options.debug {
-                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                        eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: truncated escape sequence");
                     }
                     if options.strict {
                         return Err(Error::syntax_error(lineno, 1));
@@ -115,20 +115,18 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                         value = &value[1..];
                     }
                     '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7' => {
-                        if value.len() < 3 {
-                            if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                        let mut end_index = 1;
+                        if value.len() > 1 && value[1..].starts_with(|ch| matches!(ch, '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7')) {
+                            end_index += 1;
+                            if value.len() > 2 && value[2..].starts_with(|ch| matches!(ch, '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7')) {
+                                end_index += 1;
                             }
-                            if options.strict {
-                                return Err(Error::syntax_error(lineno, 1));
-                            }
-                            continue;
                         }
 
-                        let arg = &value[..3];
+                        let arg = &value[..end_index];
                         let Ok(ch) = u8::from_str_radix(arg, 8) else {
                             if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid octal escape sequence: \\{}", arg);
                             }
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
@@ -136,12 +134,12 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                             continue;
                         };
                         value_buf.push(ch as char);
-                        value = &value[3..];
+                        value = &value[end_index..];
                     }
                     'x' => {
                         if value.len() < 3 {
                             if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid hex escape sequence: \\{}", value);
                             }
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
@@ -152,7 +150,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                         let arg = &value[1..3];
                         let Ok(ch) = u8::from_str_radix(arg, 16) else {
                             if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid hex escape sequence: \\x{}", arg);
                             }
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
@@ -165,7 +163,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                     'u' => {
                         if value.len() < 5 {
                             if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid unicode escape sequence: \\{}", value);
                             }
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
@@ -176,7 +174,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                         let arg = &value[1..5];
                         let Ok(ch) = u16::from_str_radix(arg, 16) else {
                             if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid unicode escape sequence: \\u{}", arg);
                             }
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
@@ -185,7 +183,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                         };
                         let Some(ch) = char::from_u32(ch.into()) else {
                             if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid unicode escape sequence: \\u{}", arg);
                             }
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
@@ -198,7 +196,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                     'U' => {
                         if value.len() < 7 {
                             if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid unicode escape sequence: \\{}", value);
                             }
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
@@ -209,7 +207,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                         let arg = &value[1..7];
                         let Ok(ch) = u32::from_str_radix(arg, 16) else {
                             if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid unicode escape sequence: \\U{}", arg);
                             }
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
@@ -218,7 +216,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                         };
                         let Some(ch) = char::from_u32(ch) else {
                             if options.debug {
-                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                                eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid unicode escape sequence: \\U{}", arg);
                             }
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
@@ -230,7 +228,7 @@ pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: 
                     }
                     _ => {
                         if options.debug {
-                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence");
+                            eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid escape sequence: \\{}", ch);
                         }
                         if options.strict {
                             return Err(Error::syntax_error(lineno, 1));
