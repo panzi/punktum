@@ -256,7 +256,7 @@ impl<'a> Parser<'a> {
             match ch {
                 '{' => {
                     src = &src[1..];
-                    let index = find_ident_end(src);
+                    let index = find_var_subst_end(src);
                     if index == 0 {
                         if self.debug {
                             eprintln!("{DEBUG_PREFIX}{}:{}: substitution syntax error",
@@ -291,7 +291,7 @@ impl<'a> Parser<'a> {
                     src = &src[1..];
                 }
                 _ => {
-                    let index = find_ident_end(src);
+                    let index = find_var_subst_end(src);
                     if index == 0 {
                         if self.debug {
                             eprintln!("{DEBUG_PREFIX}{}:{}: substitution syntax error",
@@ -316,8 +316,13 @@ impl<'a> Parser<'a> {
 }
 
 #[inline]
-fn find_ident_end(src: &str) -> usize {
-    src.find(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_').unwrap_or(src.len())
+fn is_var_subst(ch: char) -> bool {
+    (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
+}
+
+#[inline]
+fn find_var_subst_end(src: &str) -> usize {
+    src.find(|ch: char| !is_var_subst(ch)).unwrap_or(src.len())
 }
 
 fn expand_escapes(mut src: &str) -> String {

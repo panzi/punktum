@@ -529,8 +529,23 @@ of compose-go, the Go implementations of docker-compose.
 
 ### Quirks
 
-Accepts `.`, `-`, `_`, `[`, and `]` in addition to `a`...`z`, `A`...`Z`, and
-`0`...`9` as part of variable names.
+It uses `IsLetter()` and `IsNumber()` from the `unicode` package, meaning variable
+names can be any Unicode code point from the Letter (L) and Number (N) catagories,
+plus `.`, `-`, `_`, `[`, and `]`. Meaning e.g. this would be a valid variable
+name: `.ᾖⅧ²⅛`
+However, a source comment above the usage of these functions claims:
+
+```C
+// variable name should match [A-Za-z0-9_.-]
+```
+
+I use Rust's [`char::is_alphanumeric()`](https://doc.rust-lang.org/std/primitive.char.html#method.is_alphanumeric)
+to implement this, which should do the same, sans both languages being up to date
+with the latest Unicode standard.
+
+Variable names in variable substitution however only match `[_a-z][_a-z0-9]*`,
+but compiled with the `i` (ignore case) flag. Yes, really only ASCII letters and
+numbers (and `_`) this time, and this time it has to start with letters (or `_`).
 
 Also accepts `:` instead of `=`, which it calls "yaml-style value declaration".
 
@@ -593,6 +608,22 @@ contain `\"`, `\\`, `\n`, and `\r`, which is evaluated appropriately.
 
 It supports the same (inline) white space as the [ComposeGo](#composego-dialect)
 dialect.
+
+It uses `IsLetter()` and `IsNumber()` from the `unicode` package, meaning variable
+names can be any Unicode code point from the Letter (L) and Number (N) catagories,
+plus `.` and `_`. Meaning e.g. this would be a valid variable name: `.ᾖⅧ²⅛`
+However, a source comment above the usage of these functions claims:
+
+```C
+// variable name should match [A-Za-z0-9_.]
+```
+
+I use Rust's [`char::is_alphanumeric()`](https://doc.rust-lang.org/std/primitive.char.html#method.is_alphanumeric)
+to implement this, which should do the same, sans both languages being up to date
+with the latest Unicode standard.
+
+Variable names in variable substitution however only match: `[A-Z0-9_]+` Yes, only
+upper case ASCII letters!
 
 `punktum` Executable
 --------------------

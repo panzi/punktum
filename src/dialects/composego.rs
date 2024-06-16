@@ -274,8 +274,8 @@ impl<'a> Parser<'a> {
                 }
                 '{' => {
                     src = &src[1..];
-                    let index = find_ident_end(src);
-                    if index == 0 {
+                    let index = find_var_subst_end(src);
+                    if index == 0 || !src.starts_with(is_var_subst_start) {
                         if self.debug {
                             eprintln!("{DEBUG_PREFIX}{}:{}: substitution syntax error",
                                 &self.path, self.lineno
@@ -439,8 +439,8 @@ impl<'a> Parser<'a> {
                     src = &src[1..];
                 }
                 _ => {
-                    let index = find_ident_end(src);
-                    if index == 0 {
+                    let index = find_var_subst_end(src);
+                    if index == 0 || !src.starts_with(is_var_subst_start) {
                         if self.debug {
                             eprintln!("{DEBUG_PREFIX}{}:{}: substitution syntax error",
                                 &self.path, self.lineno
@@ -464,7 +464,12 @@ impl<'a> Parser<'a> {
 }
 
 #[inline]
-fn find_ident_end(src: &str) -> usize {
+fn is_var_subst_start(ch: char) -> bool {
+    ch.is_ascii_alphabetic() || ch == '_'
+}
+
+#[inline]
+fn find_var_subst_end(src: &str) -> usize {
     src.find(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_').unwrap_or(src.len())
 }
 
