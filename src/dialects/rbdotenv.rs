@@ -35,6 +35,8 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
             break;
         }
 
+        let mut key_lineno = parser.lineno;
+        let mut key_line_start = parser.line_start;
         let mut key_start = parser.index;
         let mut key_end = find_vardef_end(&parser.buf, parser.index);
 
@@ -44,6 +46,8 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
         let mut export = false;
         if parser.buf[parser.index..].starts_with(is_vardef) && &parser.buf[key_start..key_end] == "export" {
             export = true;
+            key_lineno = parser.lineno;
+            key_line_start = parser.line_start;
             key_start = parser.index;
             key_end = find_vardef_end(&parser.buf, parser.index);
             parser.index = key_end;
@@ -52,7 +56,7 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
 
         if key_start == key_end {
             let line_end = find_line_end(&parser.buf, parser.index);
-            let column = key_end - find_line_start(&parser.buf, key_end) + 1;
+            let column = parser.index - parser.line_start + 1;
             if options.debug {
                 let line = &parser.buf[parser.line_start..line_end];
                 if let Some(ch) = parser.buf[key_start..].chars().next() {
@@ -77,11 +81,11 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
                 let key = &parser.buf[key_start..key_end];
                 if env.get(key.as_ref()).is_none() {
                     let line_end = find_line_end(&parser.buf, parser.index);
-                    let column = key_end - find_line_start(&parser.buf, key_end) + 1;
+                    let column = key_end - key_line_start + 1;
                     if options.debug {
                         let line = &parser.buf[parser.line_start..line_end];
                         eprintln!("{DEBUG_PREFIX}{path_str}:{}:{}: variable {key:?} is unset in line: {}",
-                            parser.lineno, column, line);
+                            key_lineno, column, line);
                     }
                     if options.strict {
                         return Err(Error::syntax_error(parser.lineno, column));
@@ -107,13 +111,15 @@ pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn
                     break;
                 }
 
+                key_lineno = parser.lineno;
+                key_line_start = parser.line_start;
                 key_start = parser.index;
                 key_end = find_vardef_end(&parser.buf, parser.index);
                 parser.index = key_end;
 
                 if key_start == key_end {
                     let line_end = find_line_end(&parser.buf, parser.index);
-                    let column = key_end - find_line_start(&parser.buf, key_end) + 1;
+                    let column = parser.index - parser.line_start + 1;
                     if options.debug {
                         let line = &parser.buf[parser.line_start..line_end];
                         if let Some(ch) = parser.buf[key_start..].chars().next() {
@@ -498,9 +504,4 @@ fn fix_newlines(buf: &mut String) {
 
         index = cr_index + 1;
     }
-}
-
-#[inline]
-fn find_line_start(src: &str, index: usize) -> usize {
-    src[..index].rfind('\n').unwrap_or(0)
 }

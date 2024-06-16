@@ -44,7 +44,7 @@ pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
 
         if key_start == key_end {
             let line_end = find_line_end(&parser.buf, parser.index);
-            let column = key_end - find_line_start(&parser.buf, key_end) + 1;
+            let column = parser.index - parser.line_start + 1;
             if options.debug {
                 let line = &parser.buf[parser.line_start..line_end];
                 if let Some(ch) = parser.buf[key_start..].chars().next() {
@@ -307,9 +307,4 @@ fn fix_newlines(buf: &mut String) {
 
         index = cr_index + 1;
     }
-}
-
-#[inline]
-fn find_line_start(src: &str, index: usize) -> usize {
-    src[..index].rfind('\n').unwrap_or(0)
 }
