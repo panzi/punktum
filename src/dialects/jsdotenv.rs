@@ -84,7 +84,9 @@ pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
             }
             let ch = ch.unwrap_or('\0');
             if key_end < parser.line_start && is_vardef(ch) {
-                // start parsing a variable definition from here
+                // We have failed to parse a variable definition where the `=` is on another line
+                // to the variable name. So now we need to retry parsing from the start of this
+                // new line in order to correctly emulate the regular expression.
             } else {
                 parser.index = line_end;
             }
@@ -185,7 +187,7 @@ pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Op
                 }
                 parser.index = line_end;
 
-                // Don't set the already parsed environment variable, because
+                // Skip setting the already parsed environment variable, because
                 // in the original the regular expression wouldn't have matched.
                 continue;
             }
