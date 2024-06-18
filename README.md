@@ -299,6 +299,10 @@ JavaScript Dotenv Dialect
 Based on version of [main.js](https://github.com/motdotla/dotenv/blob/8ab33066f90a20445d3c41e4fafba6c929c5e1a5/lib/main.js)
 from the dotenv npm package.
 
+There is a sub-dialect with the package [`dotenv-expand`](https://github.com/motdotla/dotenv-expand).
+This builds on [`dotenv`](https://github.com/motdotla/dotenv) and adds variable
+expansion. Of course that also works in unexpected ways, see below.
+
 ### Quirks
 
 This dialect supports strings quoted in double quotes (`"`), single quotes (`'`)
@@ -359,6 +363,87 @@ can be separated by any kind of white space.
 
 Accepts `.` and `-` in addition to `a`...`z`, `A`...`Z`, and `0`...`9` as
 part of variable names.
+
+#### Dotenv-Expand Sub-Dialect
+
+This is not (yet?) implemented by Punktum.
+
+This adds vriable substitution on top, but because it is not integrated in the
+parser it works differently than one might expect. It scans all variables that
+where defined in an environment and recursively resolves any found variable
+references. It also resolves references in variables that where defined outside
+the `.env` file, though it won't replace those variables with the resolved value.
+It only will use that altered value in variables defined in the `.env` file that
+reference that other variable.
+
+This leads to e.g. the following behavior.
+
+Pre-defined environemnt:
+
+```dotenv
+FOO='${BAR}'
+```
+
+Actual `.env` file:
+
+```dotenv
+BAR='this is bar'
+FOO_ON_LINE2="$FOO"
+BAR='replaced bar'
+FOO_ON_LINE4="$FOO"
+```
+
+This will result in an environment equivalent to this JSON:
+
+```JSON
+{
+    "FOO": "${BAR}",
+    "BAR": "replaced bar",
+    "FOO_ON_LINE2": "replaced bar",
+    "FOO_ON_LINE4": "replaced bar"
+}
+```
+
+And if you add two more lines like this:
+
+```dotenv
+BAR='this is bar'
+FOO_ON_LINE2="$FOO"
+BAR='replaced bar'
+FOO_ON_LINE4="$FOO"
+FOO='replaced foo'
+FOO_ON_LINE6="$FOO"
+```
+
+This will result in an environment equivalent to this JSON:
+
+```JSON
+{
+    "FOO": "${BAR}",
+    "BAR": "replaced bar",
+    "FOO_ON_LINE2": "replaced foo",
+    "FOO_ON_LINE4": "replaced foo",
+    "FOO_ON_LINE6": "replaced foo"
+}
+```
+
+Also this means that this will give a maximum call stack exceeded error:
+
+```dotenv
+A=$B
+B=$A
+```
+
+Further it supports `${FOO:-DEFAULT}` and `${FOO-DEFAULT}`, but handles both
+exactly the same. The default value will be used if `$FOO` is empty or unset.
+It does variable substitution in the default value, but starts to fail when
+the default value has too many nested default values, because the regular
+expresion has a limited number of nested `{` `}` defined.
+
+Like in the Ruby dialect `{` and `}` in variable substitution don't
+need to be balanced. `${FOO`, `$FOO}`, `${FOO}`, and `$FOO` all do the
+same. But more importantly the fallback is applied even if there are no
+braces! `$FOO:-BAR` will show `BAR` if `$FOO` is unset or empty.
 
 Ruby Dotenv Dialect
 -------------------
