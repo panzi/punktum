@@ -1,9 +1,10 @@
 pub mod punktum;
-pub mod jsdotenv;
-pub mod pydotenvcli;
+pub mod javascript_dotenv;
+pub mod python_dotenv_cli;
+pub mod python_dotenv;
 pub mod nodejs;
 pub mod composego;
 pub mod godotenv;
 pub mod binary;
-pub mod rbdotenv;
-pub mod javadotenv;
+pub mod ruby_dotenv;
+pub mod java_dotenv;
