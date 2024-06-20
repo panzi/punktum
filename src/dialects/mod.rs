@@ -4,7 +4,7 @@ pub mod python_dotenv_cli;
 pub mod python_dotenv;
 pub mod nodejs;
 pub mod composego;
-pub mod godotenv;
+pub mod go_dotenv;
 pub mod binary;
 pub mod ruby_dotenv;
 pub mod java_dotenv;

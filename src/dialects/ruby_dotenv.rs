@@ -3,7 +3,7 @@ use std::{ffi::OsStr, io::BufRead, path::Path};
 
 use crate::{env::GetEnv, Env, Error, Options, Result, DEBUG_PREFIX};
 
-pub fn config_rbdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
+pub fn config_ruby_dotenv(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dyn GetEnv, options: &Options<&Path>) -> Result<()> {
     let legacy_linebreak = if let Some(value) = parent.get("DOTENV_LINEBREAK_MODE".as_ref()) {
         let value: &OsStr = value.as_ref();
         value == "legacy"

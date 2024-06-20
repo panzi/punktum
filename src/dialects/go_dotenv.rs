@@ -3,7 +3,7 @@ use std::{borrow::Cow, io::BufRead, num::NonZeroU8, path::Path};
 use crate::{env::GetEnv, Env, Error, Options, Result, DEBUG_PREFIX};
 
 // trying to be compatible to: https://github.com/joho/godotenv/blob/v1.5.1/parser.go
-pub fn config_godotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+pub fn config_go_dotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
 
     let mut src = String::new();

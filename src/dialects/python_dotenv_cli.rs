@@ -3,7 +3,7 @@ use std::{io::BufRead, path::Path};
 
 use crate::{Env, Error, Options, Result, DEBUG_PREFIX};
 
-pub fn config_pydotenvcli(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
 
     let mut lines = String::new();

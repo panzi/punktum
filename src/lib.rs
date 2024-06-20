@@ -14,13 +14,13 @@ use std::path::Path;
 pub mod error;
 use dialects::binary::config_binary;
 use dialects::composego::config_composego;
-use dialects::godotenv::config_godotenv;
-use dialects::java_dotenv::config_javadotenv;
-use dialects::javascript_dotenv::config_jsdotenv;
+use dialects::go_dotenv::config_go_dotenv;
+use dialects::java_dotenv::config_java_dotenv;
+use dialects::javascript_dotenv::config_javascript_dotenv;
 use dialects::nodejs::config_nodejs;
 use dialects::punktum::config_punktum;
-use dialects::python_dotenv_cli::config_pydotenvcli;
-use dialects::ruby_dotenv::config_rbdotenv;
+use dialects::python_dotenv_cli::config_python_dotenv_cli;
+use dialects::ruby_dotenv::config_ruby_dotenv;
 use env::SYSTEM_ENV;
 pub use error::Error;
 pub use error::ErrorKind;
@@ -123,13 +123,13 @@ where P: AsRef<Path> {
 
     match options.dialect {
         Dialect::Punktum          => config_punktum(    reader, env, parent, &options),
-        Dialect::JavaScriptDotenv => config_jsdotenv(   reader, env, &options),
+        Dialect::JavaScriptDotenv => config_javascript_dotenv(   reader, env, &options),
         Dialect::NodeJS           => config_nodejs(     reader, env, &options),
-        Dialect::PythonDotenvCLI  => config_pydotenvcli(reader, env, &options),
+        Dialect::PythonDotenvCLI  => config_python_dotenv_cli(reader, env, &options),
         Dialect::ComposeGo        => config_composego(  reader, env, parent, &options),
-        Dialect::GoDotenv         => config_godotenv(   reader, env, &options),
-        Dialect::RubyDotenv       => config_rbdotenv(   reader, env, parent, &options),
-        Dialect::JavaDotenv       => config_javadotenv( reader, env, &options),
+        Dialect::GoDotenv         => config_go_dotenv(   reader, env, &options),
+        Dialect::RubyDotenv       => config_ruby_dotenv(   reader, env, parent, &options),
+        Dialect::JavaDotenv       => config_java_dotenv( reader, env, &options),
         Dialect::Binary           => config_binary(     reader, env, &options),
     }
 }

@@ -3,7 +3,7 @@ use std::{io::BufRead, path::Path};
 
 use crate::{Env, Error, Options, Result, DEBUG_PREFIX};
 
-pub fn config_jsdotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+pub fn config_javascript_dotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
     let mut buf = String::new();
     options.encoding.read_to_string(reader, &mut buf)?;

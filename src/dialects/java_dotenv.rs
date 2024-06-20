@@ -3,7 +3,7 @@ use std::{io::BufRead, path::Path};
 
 use crate::{line_splitter::split_lines, Env, Error, Options, Result, DEBUG_PREFIX};
 
-pub fn config_javadotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
+pub fn config_java_dotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
     let path_str = options.path.to_string_lossy();
     let mut lines = String::new();
     options.encoding.read_to_string(reader, &mut lines)?;
