@@ -6,3 +6,4 @@ pub mod composego;
 pub mod godotenv;
 pub mod binary;
 pub mod rbdotenv;
+pub mod javadotenv;

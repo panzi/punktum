@@ -15,6 +15,7 @@ pub mod error;
 use dialects::binary::config_binary;
 use dialects::composego::config_composego;
 use dialects::godotenv::config_godotenv;
+use dialects::javadotenv::config_javadotenv;
 use dialects::jsdotenv::config_jsdotenv;
 use dialects::nodejs::config_nodejs;
 use dialects::punktum::config_punktum;
@@ -42,6 +43,8 @@ pub mod dialect;
 pub use dialect::Dialect;
 
 pub mod dialects;
+
+pub mod line_splitter;
 
 pub(crate) const DEBUG_PREFIX: &str = concat!("[", env!("CARGO_PKG_NAME"), "@", env!("CARGO_PKG_VERSION"), "][DEBUG] ");
 
@@ -126,6 +129,7 @@ where P: AsRef<Path> {
         Dialect::ComposeGo        => config_composego(  reader, env, parent, &options),
         Dialect::GoDotenv         => config_godotenv(   reader, env, &options),
         Dialect::RubyDotenv       => config_rbdotenv(   reader, env, parent, &options),
+        Dialect::JavaDotenv       => config_javadotenv( reader, env, &options),
         Dialect::Binary           => config_binary(     reader, env, &options),
     }
 }

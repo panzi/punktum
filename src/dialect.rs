@@ -9,6 +9,7 @@ pub enum Dialect {
     ComposeGo,
     GoDotenv,
     RubyDotenv,
+    JavaDotenv,
     Binary,
 }
 
@@ -54,6 +55,9 @@ impl TryFrom<&OsStr> for Dialect {
         } else if value.eq_ignore_ascii_case("rubydotenv") ||
                   value.eq_ignore_ascii_case("ruby-dotenv") {
             Ok(Dialect::RubyDotenv)
+        } else if value.eq_ignore_ascii_case("javadotenv") ||
+                  value.eq_ignore_ascii_case("java-dotenv") {
+            Ok(Dialect::JavaDotenv)
         } else if value.eq_ignore_ascii_case("binary") {
             Ok(Dialect::Binary)
         } else {
