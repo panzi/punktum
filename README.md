@@ -33,7 +33,7 @@ with my limited manual test.
 | [GoDotenv](#godotenv-dialect) | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems to be a predecessor to the above. |
 | [RubyDotenv](#ruby-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. **NOTE:** Command `$()` support is deliberately not implemented. I deem running programs from a `.env` file to be dangerous. Use a shell script if you want to do that. |
 | [JavaScriptDotenv](#javascript-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. The NodeJS dialect is meant to be the same as this, but of course isn't. |
-| JavaDotenv | *Not Implemented* | Compatible to [java-dotenv](https://github.com/cdimascio/dotenv-java). Yet again subtly different. |
+| [JavaDotenv](#java-dotenv-dialect) | Works | Compatible to [java-dotenv](https://github.com/cdimascio/dotenv-java). Yet again subtly different. |
 | Dotenvy | *Not Implemented* | Probably won't implement [dotenvy](https://github.com/allan2/dotenvy) support, since it is already a Rust crate. And it is a good dialect with a sane parser and at a glance comprehensive looking tests. **Use that!** |
 | [Binary](#binary-dialect) | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only uses UTF-8. |
 
@@ -709,6 +709,34 @@ with the latest Unicode standard.
 
 Variable names in variable substitution however only match: `[A-Z0-9_]+` Yes, only
 upper case ASCII letters!
+
+Java Dotenv Dialect
+-------------------
+
+Based on this version of [DotenvParser.java](https://github.com/cdimascio/dotenv-java/blob/0c5642eeac01cc3532d46e02d4901c58a9261961/src/main/java/io/github/cdimascio/dotenv/internal/DotenvParser.java).
+
+### Quirks
+
+Supports double `"` and single `'` quoted strings in the regular expression, but
+then only removes the surrounding quotes from double quoted strings. Also there
+are no escape sequences, i.e. quoted strings may not include the quote, and there
+are no multiline strings.
+
+It checks if a string is quoted by checking if it starts and ends with `"` and
+if yes slices of the first and last character of the value. But if the value was
+a single `"` this will lead to an `StringIndexOutOfBoundsException`.
+
+Given that when the quoted regular expression fails it just treats any characters
+not including `#` (or `\n` of course) and then looks if the string starts and
+ends with `"` anyway the quoted string regular expression doesn't even matter.
+
+You cannot define a variable multiple times. That will crash with:
+
+```plain
+java.lang.IllegalStateException: Duplicate key VARNAME (attempted merging values VALUE1 and VALUE2)
+```
+
+In the Punktum implementation of this dialect you can.
 
 `punktum` Executable
 --------------------

@@ -72,7 +72,7 @@ pub fn config_javadotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &
         let mut value_end = index;
 
         if let Some(ch) = line[index..].chars().next() {
-            if ch == '"' || ch == '\\' {
+            if ch == '"' || ch == '\'' {
                 if let Some(end_index) = line[value_start + 1..].find(ch) {
                     value_end = end_index + index + 2;
                 }
@@ -80,29 +80,47 @@ pub fn config_javadotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &
         }
 
         if value_start == value_end {
+            // unquoted string
             value_end = if let Some(commet_start) = line[value_start..].find('#') {
                 commet_start + value_start
             } else {
                 line.len()
             };
         } else {
+            // quoted string
             index = skip_ws(line, value_end);
             if let Some(ch) = line[index..].chars().next() {
                 if ch != '#' {
                     if options.debug {
-                        eprintln!("{DEBUG_PREFIX}{path_str}:{}: expected line end or '#', found {:?}: {}",
+                        eprintln!("{DEBUG_PREFIX}{path_str}:{}: expected line end or '#', found {:?}, fallback to unquoted string: {}",
                             lineno, ch, line);
                     }
                     if options.strict {
                         return Err(Error::syntax_error(lineno, 1));
                     }
-                    continue;
+                    // fallback to unquoted string
+                    value_end = if let Some(commet_start) = line[value_start..].find('#') {
+                        commet_start + value_start
+                    } else {
+                        line.len()
+                    };
                 }
             }
         }
 
         let key = &line[key_start..key_end];
-        let value = normalize_value(&line[value_start..value_end]);
+        let value = &line[value_start..value_end];
+        if value == "\"" {
+            if options.debug {
+                eprintln!("{DEBUG_PREFIX}{path_str}:{}: value is a single double quote, this would have crashed the original: {}",
+                    lineno, line);
+            }
+            if options.strict {
+                return Err(Error::syntax_error(lineno, 1));
+            }
+            continue;
+        }
+        let value = normalize_value(value);
         options.set_var_cut_null(env, key, value);
     }
 
@@ -154,7 +172,7 @@ fn is_space(ch: char) -> bool {
 
 #[inline]
 fn is_empty_line(src: &str) -> bool {
-    src.contains(|ch| !is_space(ch))
+    !src.contains(|ch| !is_space(ch))
 }
 
 #[inline]
@@ -170,5 +188,9 @@ fn is_quoted(src: &str) -> bool {
 #[inline]
 fn normalize_value(value: &str) -> &str {
     let value = trim(value);
-    if is_quoted(value) { &value[1..value.len() - 1] } else { value }
+    if value.len() > 1 && is_quoted(value) {
+        &value[1..value.len() - 1]
+    } else {
+        value
+    }
 }
