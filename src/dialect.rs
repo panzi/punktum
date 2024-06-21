@@ -5,6 +5,7 @@ pub enum Dialect {
     Punktum,
     NodeJS,
     JavaScriptDotenv,
+    PythonDotenv,
     PythonDotenvCLI,
     ComposeGo,
     GoDotenv,
@@ -46,6 +47,11 @@ impl TryFrom<&OsStr> for Dialect {
                   value.eq_ignore_ascii_case("python-dotenv-cli") ||
                   value.eq_ignore_ascii_case("py-dotenv-cli") {
             Ok(Dialect::PythonDotenvCLI)
+        } else if value.eq_ignore_ascii_case("pythondotenv") ||
+                  value.eq_ignore_ascii_case("pydotenv") ||
+                  value.eq_ignore_ascii_case("python-dotenv") ||
+                  value.eq_ignore_ascii_case("py-dotenv") {
+            Ok(Dialect::PythonDotenv)
         } else if value.eq_ignore_ascii_case("composego") ||
                   value.eq_ignore_ascii_case("compose-go") {
             Ok(Dialect::ComposeGo)

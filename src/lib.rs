@@ -19,6 +19,7 @@ use dialects::java_dotenv::config_java_dotenv;
 use dialects::javascript_dotenv::config_javascript_dotenv;
 use dialects::nodejs::config_nodejs;
 use dialects::punktum::config_punktum;
+use dialects::python_dotenv::config_python_dotenv;
 use dialects::python_dotenv_cli::config_python_dotenv_cli;
 use dialects::ruby_dotenv::config_ruby_dotenv;
 use env::SYSTEM_ENV;
@@ -122,15 +123,16 @@ where P: AsRef<Path> {
     };
 
     match options.dialect {
-        Dialect::Punktum          => config_punktum(    reader, env, parent, &options),
-        Dialect::JavaScriptDotenv => config_javascript_dotenv(   reader, env, &options),
-        Dialect::NodeJS           => config_nodejs(     reader, env, &options),
+        Dialect::Punktum          => config_punktum(          reader, env, parent, &options),
+        Dialect::JavaScriptDotenv => config_javascript_dotenv(reader, env, &options),
+        Dialect::NodeJS           => config_nodejs(           reader, env, &options),
+        Dialect::PythonDotenv     => config_python_dotenv(    reader, env, &options),
         Dialect::PythonDotenvCLI  => config_python_dotenv_cli(reader, env, &options),
-        Dialect::ComposeGo        => config_composego(  reader, env, parent, &options),
-        Dialect::GoDotenv         => config_go_dotenv(   reader, env, &options),
-        Dialect::RubyDotenv       => config_ruby_dotenv(   reader, env, parent, &options),
-        Dialect::JavaDotenv       => config_java_dotenv( reader, env, &options),
-        Dialect::Binary           => config_binary(     reader, env, &options),
+        Dialect::ComposeGo        => config_composego(        reader, env, parent, &options),
+        Dialect::GoDotenv         => config_go_dotenv(        reader, env, &options),
+        Dialect::RubyDotenv       => config_ruby_dotenv(      reader, env, parent, &options),
+        Dialect::JavaDotenv       => config_java_dotenv(      reader, env, &options),
+        Dialect::Binary           => config_binary(           reader, env, &options),
     }
 }
 
