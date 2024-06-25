@@ -383,13 +383,11 @@ fn match_quoted_value(string: &str, index: usize, quote: char) -> Option<Match> 
         return None;
     };
 
-    if end_index > 0 {
-        while slice.is_char_boundary(end_index - 1) && slice[end_index - 1..].starts_with('\\') {
-            let Some(pos) = slice[end_index + quote_len..].find(quote) else {
-                break;
-            };
-            end_index += pos + quote_len;
-        }
+    while slice[..end_index].ends_with('\\') {
+        let Some(pos) = slice[end_index + quote_len..].find(quote) else {
+            break;
+        };
+        end_index += pos + quote_len;
     }
 
     Some(Match {

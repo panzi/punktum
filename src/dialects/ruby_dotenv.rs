@@ -413,25 +413,37 @@ impl Parser {
     }
 
     fn skip_to_quote_end(&mut self, quote: char) -> bool {
-        let mut iter = self.buf[self.index..].char_indices().peekable();
-        while let Some((index, ch)) = iter.next() {
-            if ch == '\n' {
-                self.lineno += 1;
-                self.line_start = self.index + index + 1;
-            } else if ch == '\\' {
-                let Some((_, ch)) = iter.peek() else {
-                    break;
-                };
-                if *ch == quote {
-                    iter.next();
-                }
-            } else if ch == quote {
-                self.index += index;
-                return true;
-            }
+        let slice = &self.buf[self.index..];
+        let Some(mut end_index) = slice.find(quote) else {
+            return false;
+        };
+
+        // Allow a backslash before the string-ending quote if there is no other
+        // quote after the current one, just like the regular expression of the
+        // original would.
+        let quote_len = quote.len_utf8();
+        while slice[..end_index].ends_with('\\') {
+            let Some(pos) = slice[end_index + quote_len..].find(quote) else {
+                break;
+            };
+            end_index += pos + quote_len;
         }
 
-        false
+        // Count newlines in the parsed string and set the line_start offset.
+        let mut slice = &slice[..end_index];
+        loop {
+            let Some(index) = slice.find('\n') else {
+                break;
+            };
+
+            self.lineno += 1;
+            self.line_start += index + 1;
+            slice = &slice[index + 1..];
+        }
+
+        self.index += end_index;
+
+        true
     }
 }
 
