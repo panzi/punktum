@@ -9,8 +9,23 @@ pub fn config_python_dotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options
     let mut reader = Reader::new(string, options);
 
     while reader.has_next() {
-        let Some(binding) = reader.parse_binding()? else {
-            continue;
+        let binding = match reader.parse_binding() {
+            Ok(None) => continue,
+            Ok(Some(binding)) => binding,
+            Err(err) => {
+                if options.debug {
+                    if let Some(loc) = err.location() {
+                        eprintln!("{DEBUG_PREFIX}{}:{}:{}: invalid syntax", reader.path, loc.lineno(), loc.column());
+                    } else {
+                        let line_start = reader.string[..reader.position.index].rfind(|ch: char| ch == '\n' || ch == '\r').unwrap_or(0);
+                        eprintln!("{DEBUG_PREFIX}{}:{}:{}: invalid syntax", reader.path, reader.position.lineno, reader.position.index - line_start + 1);
+                    }
+                }
+                if options.strict {
+                    return Err(err);
+                }
+                continue;
+            }
         };
 
         let Some(key) = &binding.key else {
@@ -48,7 +63,7 @@ struct Position {
 impl Position {
     #[inline]
     pub fn start() -> Self {
-        Self { index: 0, lineno: 0 }
+        Self { index: 0, lineno: 1 }
     }
 
     #[inline]
