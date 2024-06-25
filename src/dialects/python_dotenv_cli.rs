@@ -75,7 +75,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                     if options.strict {
                         return Err(Error::syntax_error(lineno, 1));
                     }
-                    continue;
+                    break;
                 };
 
                 match ch {
@@ -131,6 +131,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
                             }
+                            value_buf.push('\\');
                             continue;
                         };
                         value_buf.push(ch as char);
@@ -144,6 +145,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
                             }
+                            value_buf.push('\\');
                             continue;
                         }
 
@@ -155,6 +157,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
                             }
+                            value_buf.push('\\');
                             continue;
                         };
                         value_buf.push(ch as char);
@@ -168,6 +171,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
                             }
+                            value_buf.push('\\');
                             continue;
                         }
 
@@ -179,6 +183,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
                             }
+                            value_buf.push('\\');
                             continue;
                         };
                         let Some(ch) = char::from_u32(ch.into()) else {
@@ -188,6 +193,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
                             }
+                            value_buf.push('\\');
                             continue;
                         };
                         value_buf.push(ch);
@@ -201,6 +207,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
                             }
+                            value_buf.push('\\');
                             continue;
                         }
 
@@ -212,6 +219,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
                             }
+                            value_buf.push('\\');
                             continue;
                         };
                         let Some(ch) = char::from_u32(ch) else {
@@ -221,6 +229,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             if options.strict {
                                 return Err(Error::syntax_error(lineno, 1));
                             }
+                            value_buf.push('\\');
                             continue;
                         };
                         value_buf.push(ch);
