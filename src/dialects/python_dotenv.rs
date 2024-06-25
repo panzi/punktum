@@ -47,11 +47,6 @@ struct Position {
 
 impl Position {
     #[inline]
-    pub fn new(index: usize, line: usize) -> Self {
-        Self { index, lineno: line }
-    }
-
-    #[inline]
     pub fn start() -> Self {
         Self { index: 0, lineno: 0 }
     }
@@ -68,10 +63,10 @@ impl Position {
     }
 }
 
-struct Original<'a> {
-    string: &'a str,
-    lineno: usize,
-}
+// struct Original<'a> {
+//     string: &'a str,
+//     lineno: usize,
+// }
 
 struct Binding {
     key: Option<String>,
@@ -106,13 +101,13 @@ impl<'a> Reader<'a> {
         self.mark.set(&self.position);
     }
 
-    #[inline]
-    pub fn get_marked(&self) -> Original {
-        Original {
-            string: &self.string[self.mark.index..self.position.index],
-            lineno: self.mark.lineno,
-        }
-    }
+    // #[inline]
+    // pub fn get_marked(&self) -> Original {
+    //     Original {
+    //         string: &self.string[self.mark.index..self.position.index],
+    //         lineno: self.mark.lineno,
+    //     }
+    // }
 
     #[inline]
     pub fn peek(&self) -> Option<char> {
@@ -148,7 +143,7 @@ impl<'a> Reader<'a> {
         }
 
         let res = self.read_pattern(match_unquoted_key)?;
-        return Ok(res.value.map(str::to_string));
+        Ok(res.value.map(str::to_string))
     }
 
     fn parse_unquoted_value(&mut self) -> Result<String> {
@@ -168,15 +163,15 @@ impl<'a> Reader<'a> {
         if ch == '\'' {
             let res = self.read_pattern(match_single_quoted_value)?;
             let value = res.value.unwrap_or("");
-            return Ok(Some(decode_single_quote_escapes(value)));
+            Ok(Some(decode_single_quote_escapes(value)))
         } else if ch == '"' {
             let res = self.read_pattern(match_double_quoted_value)?;
             let value = res.value.unwrap_or("");
-            return Ok(Some(decode_double_quote_escapes(value)));
+            Ok(Some(decode_double_quote_escapes(value)))
         } else if ch == '\n' || ch == '\r' {
-            return Ok(Some(String::new()));
+            Ok(Some(String::new()))
         } else {
-            return Ok(Some(self.parse_unquoted_value()?));
+            Ok(Some(self.parse_unquoted_value()?))
         }
     }
 
@@ -285,9 +280,11 @@ fn match_whitespace(string: &str, index: usize) -> Option<Match> {
 fn match_export(string: &str, index: usize) -> Option<Match> {
     let slice = &string[index..];
 
-    let Some(slice) = slice.strip_prefix("export") else {
+    let slice = slice.strip_prefix("export")?;
+
+    if !slice.starts_with(is_inline_whitespace) {
         return None;
-    };
+    }
 
     let pos = slice.find(|ch: char| !is_inline_whitespace(ch)).unwrap_or(slice.len());
 
@@ -310,9 +307,7 @@ fn match_single_quoted_key(string: &str, index: usize) -> Option<Match> {
     }
 
     let slice = &string[1..];
-    let Some(pos) = slice.find('\'') else {
-        return None;
-    };
+    let pos = slice.find('\'')?;
 
     if pos == 0 {
         return None;
@@ -379,9 +374,7 @@ fn match_quoted_value(string: &str, index: usize, quote: char) -> Option<Match> 
 
     let quote_len = quote.len_utf8();
     let slice = &string[quote_len..];
-    let Some(mut end_index) = slice.find(quote) else {
-        return None;
-    };
+    let mut end_index = slice.find(quote)?;
 
     while slice[..end_index].ends_with('\\') {
         let Some(pos) = slice[end_index + quote_len..].find(quote) else {
@@ -398,19 +391,122 @@ fn match_quoted_value(string: &str, index: usize, quote: char) -> Option<Match> 
 }
 
 fn match_unquoted_value(string: &str, index: usize) -> Option<Match> {
-    unimplemented!()
+    let slice = &string[index..];
+
+    let pos = slice.find(|ch: char| ch == '\n' || ch == '\r').unwrap_or(slice.len());
+
+    if pos == 0 {
+        return None;
+    }
+
+    Some(Match {
+        value: Some(&slice[..pos]),
+        start_index: index,
+        end_index: index + pos
+    })
 }
 
 fn match_comment(string: &str, index: usize) -> Option<Match> {
-    unimplemented!()
+    let Some(slice) = string.get(index..) else {
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: index,
+        });
+    };
+
+    let Some(hash_index) = slice.find(|ch: char| !is_inline_whitespace(ch)) else {
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: index,
+        });
+    };
+
+    let slice = &slice[hash_index..];
+    if !slice.starts_with('#') {
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: index,
+        });
+    }
+
+    let end_index = if let Some(pos) = slice.find(|ch: char| ch == '\n' || ch == '\r') {
+        pos
+    } else {
+        slice.len()
+    };
+
+    Some(Match {
+        value: None,
+        start_index: index,
+        end_index: index + hash_index + end_index,
+    })
 }
 
 fn match_end_of_line(string: &str, index: usize) -> Option<Match> {
-    unimplemented!()
+    let Some(slice) = string.get(index..) else {
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: index,
+        });
+    };
+
+    let Some(pos) = slice.find(|ch: char| !is_inline_whitespace(ch)) else {
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: string.len(),
+        });
+    };
+
+    let slice = &slice[pos..];
+    let end_index = index + pos + if slice.starts_with("\r\n") {
+        2
+    } else if slice.starts_with(|ch: char| ch == '\n' || ch == '\r') {
+        1
+    } else {
+        return None;
+    };
+
+    Some(Match {
+        value: None,
+        start_index: index,
+        end_index
+    })
 }
 
 fn match_rest_of_line(string: &str, index: usize) -> Option<Match> {
-    unimplemented!()
+    let Some(slice) = string.get(index..) else {
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: index,
+        });
+    };
+
+    let Some(pos) = slice.find(|ch: char| ch == '\n' || ch == '\r') else {
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: string.len(),
+        });
+    };
+
+    let slice = &slice[pos..];
+    let end_index = index + pos + if slice.starts_with("\r\n") {
+        2
+    } else {
+        1
+    };
+
+    Some(Match {
+        value: None,
+        start_index: index,
+        end_index
+    })
 }
 
 fn count_newlines(mut src: &str) -> usize {
