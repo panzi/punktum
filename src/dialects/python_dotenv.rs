@@ -49,6 +49,8 @@ pub fn config_python_dotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options
             }
             ""
         };
+
+        // TODO: interpolate value like: https://github.com/theskumar/python-dotenv/blob/main/src/dotenv/variables.py
         options.set_var_cut_null(env, key, value);
     }
     
@@ -171,22 +173,22 @@ impl<'a> Reader<'a> {
         Ok(value.to_owned())
     }
 
-    fn parse_value(&mut self) -> Result<Option<String>> {
+    fn parse_value(&mut self) -> Result<String> {
         let Some(ch) = self.peek() else {
-            return Ok(Some(String::new()));
+            return Ok(String::new());
         };
         if ch == '\'' {
             let res = self.read_pattern(match_single_quoted_value)?;
             let value = res.value.unwrap_or("");
-            Ok(Some(decode_single_quote_escapes(value)))
+            Ok(decode_single_quote_escapes(value))
         } else if ch == '"' {
             let res = self.read_pattern(match_double_quoted_value)?;
             let value = res.value.unwrap_or("");
-            Ok(Some(decode_double_quote_escapes(value)))
+            Ok(decode_double_quote_escapes(value))
         } else if ch == '\n' || ch == '\r' {
-            Ok(Some(String::new()))
+            Ok(String::new())
         } else {
-            Ok(Some(self.parse_unquoted_value()?))
+            Ok(self.parse_unquoted_value()?)
         }
     }
 
@@ -209,7 +211,7 @@ impl<'a> Reader<'a> {
             let value = match reader.peek() {
                 Some('=') => {
                     reader.read_pattern(match_equal_sign)?;
-                    reader.parse_value()?
+                    Some(reader.parse_value()?)
                 },
                 _ => None
             };
@@ -295,16 +297,30 @@ fn match_whitespace(string: &str, index: usize) -> Option<Match> {
 fn match_export(string: &str, index: usize) -> Option<Match> {
     let slice = &string[index..];
 
-    let slice = slice.strip_prefix("export")?;
+    let Some(slice) = slice.strip_prefix("export") else {
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: index
+        });
+    };
 
     if !slice.starts_with(is_inline_whitespace) {
-        return None;
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: index
+        });
     }
 
     let pos = slice.find(|ch: char| !is_inline_whitespace(ch)).unwrap_or(slice.len());
 
     if pos == 0 {
-        return None;
+        return Some(Match {
+            value: None,
+            start_index: index,
+            end_index: index
+        });
     }
 
     Some(Match {
@@ -388,7 +404,7 @@ fn match_quoted_value(string: &str, index: usize, quote: char) -> Option<Match> 
     }
 
     let quote_len = quote.len_utf8();
-    let slice = &string[quote_len..];
+    let slice = &slice[quote_len..];
     let mut end_index = slice.find(quote)?;
 
     while slice[..end_index].ends_with('\\') {
@@ -555,7 +571,7 @@ fn decode_single_quote_escapes(mut value: &str) -> String {
 
         buf.push_str(&value[..index]);
 
-        value = &value[1..];
+        value = &value[index + 1..];
         if value.starts_with('\\') {
             buf.push('\\');
             value = &value[1..];
@@ -582,7 +598,7 @@ fn decode_double_quote_escapes(mut value: &str) -> String {
 
         buf.push_str(&value[..index]);
 
-        value = &value[1..];
+        value = &value[index + 1..];
         let Some(ch) = value.chars().next() else {
             buf.push('\\');
             break;
