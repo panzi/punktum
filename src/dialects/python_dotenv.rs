@@ -63,16 +63,13 @@ fn interpolate(mut src: &str, env: &dyn GetEnv) -> String {
     let mut buf = String::new();
 
     loop {
-        let Some(index) = src.find('$') else {
+        let Some(index) = src.find("${") else {
             break;
         };
 
         buf.push_str(&src[..index]);
-        src = &src[index + 1..];
-
-        if src.starts_with('{') {
-            src = &src[1..];
-        }
+        src = &src[index + 2..];
+        let bak = src;
 
         let index = src.find(|ch: char| ch == ':' || ch == '}').unwrap_or(src.len());
         let key = &src[..index];
@@ -88,9 +85,13 @@ fn interpolate(mut src: &str, env: &dyn GetEnv) -> String {
             ""
         };
 
-        if src.starts_with('}') {
-            src = &src[1..];
+        if !src.starts_with('}') {
+            src = bak;
+            buf.push_str("${");
+            continue;
         }
+
+        src = &src[1..];
 
         if let Some(value) = env.get(key.as_ref()) {
             buf.push_str(value.to_string_lossy().as_ref());
