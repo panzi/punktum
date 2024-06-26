@@ -323,6 +323,10 @@ around a value are stripped if the first and last character are matching quotes,
 again not if the reqular expression (that has the not processed escaped quote in
 it) had matched.
 
+The way the regular expression used to parse quoted strings works means that
+if the last quote in a file is escaped (`\"`) it is taken as the ending quote of
+a quoted value anyway.
+
 Instead of `=` this dialect also accepts `:`, but only if there is no
 space between it and the variable name.
 
@@ -508,6 +512,10 @@ created environment or if it is unset there also the system
 environment) then `\n` and `\r` in double quoted strings are
 replaced with newlines and carrige returns.
 
+The way the regular expression used to parse quoted strings works means
+that if the last quote in a file is escaped (`\"`) it is taken as the
+ending quote of a quoted value anyway.
+
 Variable and command substitution is performed in double quoted and
 non-quoted strings.
 
@@ -605,6 +613,17 @@ the string as the Unicode that it is.
 
 **NOTE:** The Punktum implementation of this dialect doesn't implement *named*
 Unicode escape sequences (`\N{name}`).
+
+Python Dotenv Dialect
+---------------------
+
+**TODO**
+
+### Quirks
+
+The way the regular expression used to parse quoted strings works means that
+if the last quote in a file is escaped (`\"`) it is taken as the ending quote
+of a quoted value anyway.
 
 ComposeGo Dialect
 -----------------
