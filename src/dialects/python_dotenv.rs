@@ -1,7 +1,7 @@
 // trying to emulate: https://github.com/theskumar/python-dotenv/blob/main/src/dotenv/parser.py
 use std::{borrow::Cow, io::BufRead, path::Path};
 
-use crate::{Env, Error, Options, Result, DEBUG_PREFIX};
+use crate::{env::GetEnv, Env, Error, Options, Result, DEBUG_PREFIX};
 
 pub fn config_python_dotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options: &Options<&Path>) -> Result<()> {
     let mut string = String::new();
@@ -50,11 +50,58 @@ pub fn config_python_dotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options
             ""
         };
 
-        // TODO: interpolate value like: https://github.com/theskumar/python-dotenv/blob/main/src/dotenv/variables.py
-        options.set_var_cut_null(env, key, value);
+        // the original has interpolation as an option, but defaults to true
+        let value = interpolate(value, env.as_get_env());
+        options.set_var_cut_null(env, key, &value);
     }
-    
+
     Ok(())
+}
+
+// see: https://github.com/theskumar/python-dotenv/blob/main/src/dotenv/variables.py
+fn interpolate(mut src: &str, env: &dyn GetEnv) -> String {
+    let mut buf = String::new();
+
+    loop {
+        let Some(index) = src.find('$') else {
+            break;
+        };
+
+        buf.push_str(&src[..index]);
+        src = &src[index + 1..];
+
+        if src.starts_with('{') {
+            src = &src[1..];
+        }
+
+        let index = src.find(|ch: char| ch == ':' || ch == '}').unwrap_or(src.len());
+        let key = &src[..index];
+        src = &src[index..];
+
+        let default = if src.starts_with(":-") {
+            src = &src[2..];
+            let index = src.find('}').unwrap_or(src.len());
+            let default = &src[..index];
+            src = &src[index..];
+            default
+        } else {
+            ""
+        };
+
+        if src.starts_with('}') {
+            src = &src[1..];
+        }
+
+        if let Some(value) = env.get(key.as_ref()) {
+            buf.push_str(value.to_string_lossy().as_ref());
+        } else {
+            buf.push_str(default);
+        }
+    }
+
+    buf.push_str(src);
+
+    buf
 }
 
 struct Position {
