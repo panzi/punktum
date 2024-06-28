@@ -207,8 +207,19 @@ impl<'a> Reader<'a> {
     fn parse_unquoted_value(&mut self) -> Result<String> {
         let res = self.read_pattern(match_unquoted_value)?;
         let mut value = res.value.unwrap_or("");
-        if let Some(index) = value.find('#') {
-            value = &value[..index];
+        let mut index = 0;
+        loop {
+            let Some(pos) = value[index..].find('#') else {
+                break;
+            };
+            let hash_index = index + pos;
+
+            if value[..hash_index].ends_with(|ch: char| ch.is_whitespace()) {
+                value = &value[..hash_index - 1];
+                break;
+            }
+
+            index = hash_index + 1;
         }
         value = value.trim_end();
         Ok(value.to_owned())
@@ -378,7 +389,7 @@ fn match_single_quoted_key(string: &str, index: usize) -> Option<Match> {
         return None;
     }
 
-    let slice = &string[1..];
+    let slice = &slice[1..];
     let pos = slice.find('\'')?;
 
     if pos == 0 {
@@ -415,7 +426,7 @@ fn match_equal_sign(string: &str, index: usize) -> Option<Match> {
         return None;
     }
 
-    let slice = &string[1..];
+    let slice = &slice[1..];
     let pos = slice.find(|ch: char| !is_inline_whitespace(ch)).unwrap_or(slice.len());
 
     Some(Match {
@@ -646,9 +657,6 @@ fn decode_double_quote_escapes(mut value: &str) -> String {
         };
 
         match ch {
-            '\n' => {
-                value = &value[1..];
-            }
             '\\' | '\'' | '"' => {
                 buf.push(ch);
                 value = &value[1..];
@@ -680,74 +688,6 @@ fn decode_double_quote_escapes(mut value: &str) -> String {
             'v' => {
                 buf.push('\x0b');
                 value = &value[1..];
-            }
-            '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7' => {
-                let mut end_index = 1;
-                if value.len() > 1 && value[1..].starts_with(|ch| matches!(ch, '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7')) {
-                    end_index += 1;
-                    if value.len() > 2 && value[2..].starts_with(|ch| matches!(ch, '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7')) {
-                        end_index += 1;
-                    }
-                }
-
-                let arg = &value[..end_index];
-                let Ok(ch) = u8::from_str_radix(arg, 8) else {
-                    buf.push('\\');
-                    continue;
-                };
-                buf.push(ch as char);
-                value = &value[end_index..];
-            }
-            'x' => {
-                if value.len() < 3 {
-                    buf.push('\\');
-                    continue;
-                }
-
-                let arg = &value[1..3];
-                let Ok(ch) = u8::from_str_radix(arg, 16) else {
-                    buf.push('\\');
-                    continue;
-                };
-                buf.push(ch as char);
-                value = &value[3..];
-            }
-            'u' => {
-                if value.len() < 5 {
-                    buf.push('\\');
-                    continue;
-                }
-
-                let arg = &value[1..5];
-                let Ok(ch) = u16::from_str_radix(arg, 16) else {
-                    buf.push('\\');
-                    continue;
-                };
-                let Some(ch) = char::from_u32(ch.into()) else {
-                    // XXX: this should probably throw in the original?
-                    buf.push('\\');
-                    continue;
-                };
-                buf.push(ch);
-                value = &value[5..];
-            }
-            'U' => {
-                if value.len() < 7 {
-                    buf.push('\\');
-                    continue;
-                }
-
-                let arg = &value[1..7];
-                let Ok(ch) = u32::from_str_radix(arg, 16) else {
-                    buf.push('\\');
-                    continue;
-                };
-                let Some(ch) = char::from_u32(ch) else {
-                    buf.push('\\');
-                    continue;
-                };
-                buf.push(ch);
-                value = &value[7..];
             }
             _ => {
                 buf.push('\\');
