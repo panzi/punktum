@@ -38,6 +38,11 @@ with my limited manual test.
 | Dotenvy | *Not Implemented* | Probably won't implement [dotenvy](https://github.com/allan2/dotenvy) support, since it is already a Rust crate. And it is a good dialect with a sane parser and at a glance comprehensive looking tests. **Use that!** |
 | [Binary](#binary-dialect) | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only uses UTF-8. |
 
+Note that *Works* means parsing files the same way. There might still be
+differences in other behavior, like if "not override" means it still can
+override variables defined in the `.env` file, or if it is only about
+inherited variables.
+
 I might not implement any more dialects than I have right now.
 
 Punktum Dialect
