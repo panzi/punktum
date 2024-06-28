@@ -95,6 +95,13 @@ impl Env for SystemEnv {
         std::env::set_var(key, value);
     }
 
+    fn remove(&mut self, key: &OsStr) {
+        #[cfg(not(target_family = "windows"))]
+        let _lock = MUTEX.lock();
+
+        std::env::remove_var(key);
+    }
+
     #[inline]
     fn as_get_env(&self) -> &dyn GetEnv {
         self

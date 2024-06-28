@@ -38,21 +38,14 @@ pub fn config_python_dotenv(reader: &mut dyn BufRead, env: &mut dyn Env, options
             continue;
         };
 
-        let value = if let Some(value) = &binding.value {
-            value
+        if let Some(value) = &binding.value {
+            // the original has interpolation as an option, but defaults to true
+            let value = interpolate(value, env.as_get_env());
+            options.set_var_cut_null(env, key, &value);
         } else {
-            if options.debug {
-                eprintln!("{DEBUG_PREFIX}{}:{}: invalid syntax parsing value", reader.path, reader.mark.lineno);
-            }
-            if options.strict {
-                return Err(Error::syntax_error(reader.mark.lineno, 1));
-            }
-            ""
-        };
-
-        // the original has interpolation as an option, but defaults to true
-        let value = interpolate(value, env.as_get_env());
-        options.set_var_cut_null(env, key, &value);
+            let key = key.split('\0').next().unwrap();
+            env.remove(key.as_ref());
+        }
     }
 
     Ok(())

@@ -66,6 +66,13 @@ where E: Env {
             self.env.set(key, value);
         }
     }
+
+    #[inline]
+    fn remove(&mut self, key: &OsStr) {
+        if self.allow_list.contains(key) {
+            self.env.remove(key);
+        }
+    }
 }
 
 impl<'a, E> AsMut<AllowListEnv<'a, E>> for AllowListEnv<'a, E> {

@@ -114,6 +114,7 @@ pub trait GetEnv {
 
 pub trait Env: GetEnv {
     fn set(&mut self, key: &OsStr, value: &OsStr);
+    fn remove(&mut self, key: &OsStr);
     fn as_get_env(&self) -> &dyn GetEnv;
 }
 
@@ -170,6 +171,11 @@ impl<T: Env> Env for &mut T where Self: GetEnv {
     fn set(&mut self, key: &OsStr, value: &OsStr) {
         (**self).set(key, value);
     }
+
+    #[inline]
+    fn remove(&mut self, key: &OsStr) {
+        (**self).remove(key);
+    }
 }
 
 impl<BH: BuildHasher> GetEnv for HashMap<OsString, OsString, BH> {
@@ -183,6 +189,11 @@ impl<BH: BuildHasher> Env for HashMap<OsString, OsString, BH> {
     #[inline]
     fn set(&mut self, key: &OsStr, value: &OsStr) {
         self.insert(key.to_os_string(), value.to_os_string());
+    }
+
+    #[inline]
+    fn remove(&mut self, key: &OsStr) {
+        self.remove(key);
     }
 
     #[inline]
@@ -205,6 +216,11 @@ impl<BH: BuildHasher> Env for HashMap<String, String, BH> {
     #[inline]
     fn set(&mut self, key: &OsStr, value: &OsStr) {
         self.insert(key.to_string_lossy().into_owned(), value.to_string_lossy().into_owned());
+    }
+
+    #[inline]
+    fn remove(&mut self, key: &OsStr) {
+        self.remove(key.to_string_lossy().as_ref());
     }
 
     #[inline]
