@@ -300,9 +300,12 @@ JavaScript Dotenv Dialect
 Based on version of [main.js](https://github.com/motdotla/dotenv/blob/8ab33066f90a20445d3c41e4fafba6c929c5e1a5/lib/main.js)
 from the dotenv npm package.
 
-There is a sub-dialect with the package [`dotenv-expand`](https://github.com/motdotla/dotenv-expand).
-This builds on [`dotenv`](https://github.com/motdotla/dotenv) and adds variable
-expansion. Of course that also works in unexpected ways, see below.
+There is a sub-dialect with the package [`dotenv-expand`](https://github.com/motdotla/dotenv-expand)
+and another with the package [`@dotenvx/dotenvx`](https://github.com/dotenvx/dotenvx).
+`dotenv-expand` builds on [`dotenv`](https://github.com/motdotla/dotenv) and adds
+variable expansion. Of course that also works in unexpected ways, see below.
+`dotenvx` builds on that and adds `$(command)` substitution, but not in a broken
+way like the [Ruby](#ruby-dotenv-dialect) dialect.
 
 ### Quirks
 
@@ -449,6 +452,14 @@ Like in the Ruby dialect `{` and `}` in variable substitution don't
 need to be balanced. `${FOO`, `$FOO}`, `${FOO}`, and `$FOO` all do the
 same. But more importantly the fallback is applied even if there are no
 braces! `$FOO:-BAR` will show `BAR` if `$FOO` is unset or empty.
+
+#### Dotenvx Sub-Dialect
+
+This sub-dialect adds `$(command)` substitution. While it does it in a
+separate phase to variable substitition, in contrast to the
+[Ruby](#ruby-dotenv-dialect) dialect it does it *before* variables are
+substituted and thus *doesn't* have a command injection vulnerability.
+So this part is fine.
 
 Ruby Dotenv Dialect
 -------------------
