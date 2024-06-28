@@ -28,7 +28,7 @@ with my limited manual test.
 |:-|:-:|:-|
 | [Punktum](#punktum-dialect) | Works | Crazy dialect I made up. More details below. |
 | [NodeJS](#nodejs-dialect) | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
-| [PythonDotnev](#python-dotenv-dialect) | *WIP* | Compatible to the [python-dotenv](https://github.com/theskumar/python-dotenv) pypi package. |
+| [PythonDotnev](#python-dotenv-dialect) | Works | Compatible to the [python-dotenv](https://github.com/theskumar/python-dotenv) pypi package. |
 | [PythonDotenvCLI](#python-dotenv-cli-dialect) | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli) pypi package. This is different to the above! Not sure which one is commonly used, so I'm working on implementing both. |
 | [ComposeGo](#composego-dialect) | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose, but needs more testing. Well, even more than the others. |
 | [GoDotenv](#godotenv-dialect) | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems to be a predecessor to the above. |
@@ -331,7 +331,7 @@ around a value are stripped if the first and last character are matching quotes,
 again not if the reqular expression (that has the not processed escaped quote in
 it) had matched.
 
-The way the regular expression used to parse quoted strings works means that
+The way the used regular expression parses quoted strings works means that
 if the last quote in a file is escaped (`\"`) it is taken as the ending quote of
 a quoted value anyway.
 
@@ -528,7 +528,7 @@ created environment or if it is unset there also the system
 environment) then `\n` and `\r` in double quoted strings are
 replaced with newlines and carrige returns.
 
-The way the regular expression used to parse quoted strings works means
+The way the used regular expression parses quoted strings works means
 that if the last quote in a file is escaped (`\"`) it is taken as the
 ending quote of a quoted value anyway.
 
@@ -633,13 +633,25 @@ Unicode escape sequences (`\N{name}`).
 Python Dotenv Dialect
 ---------------------
 
-**TODO**
+Based on this version of [parser.py](https://github.com/theskumar/python-dotenv/blob/08937a1911c042ed3fc7cbeeb4d1d5a73d2674ed/src/dotenv/parser.py)
+of the python-dotenv pypi package.
 
 ### Quirks
 
-The way the regular expression used to parse quoted strings works means that
+The way the used regular expression parses quoted strings works means that
 if the last quote in a file is escaped (`\"`) it is taken as the ending quote
 of a quoted value anyway.
+
+A variable name without `=` deletes the variable from the newly constructed
+environment. It doesn't affect the parent environment, though, since that is
+merged after the new environment is constructed.
+
+The Punktum implementation merges in the parent environment before parsing
+the `.env` file and thus doesn't know at that point if the variable comes
+from the parent and just always deletes it.
+
+`#` needs to be separated form an unquoted value by white-space to be read as
+the start of a comment.
 
 ComposeGo Dialect
 -----------------
