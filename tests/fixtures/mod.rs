@@ -1,6 +1,5 @@
 pub mod edge_cases_javascript;
 pub mod edge_cases_nodejs;
-pub mod edge_cases_python_cli_replace;
 pub mod edge_cases_python_cli;
 pub mod edge_cases_python;
 pub mod edge_cases_ruby_legacy;
