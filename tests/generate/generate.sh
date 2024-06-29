@@ -29,6 +29,7 @@ python -m dotenv --file edge-cases.env run --no-override node dumpenv.js > ../ed
 DOTENV_LINEBREAK_MODE=legacy "$RUBY_DOTENV" -f edge-cases.env node dumpenv.js > ../edge_cases/ruby_legacy.rs
 
 "$GO_DOTENV" -f edge-cases-godotenv.env node dumpenv.js > ../edge_cases/godotenv.rs
+# TODO: compose-go dotenv (supports INHERIT=inherited )
 
 #dotenvy --file=dotenvy.env node dumpenv.js > ../edge_cases/dotenvy.rs
 
@@ -37,7 +38,7 @@ gradle -q run --args="--file ../edge-cases-java.env node ../dumpenv.js" > ../../
 popd
 
 pushd ../..
-cargo run -- --strict=false --file=tests/generate/edge-cases.env node tests/generate/dumpenv.js > tests/edge_cases/punktum.rs
+INHERIT=inherited cargo run -- --strict=false --file=tests/generate/edge-cases.env node tests/generate/dumpenv.js > tests/edge_cases/punktum.rs
 popd
 
 # quote-backtracking.env
@@ -54,6 +55,7 @@ python -m dotenv --file quote-backtracking.env run --no-override node dumpenv.js
 "$RUBY_DOTENV" -f quote-backtracking.env node dumpenv.js "${keys[@]}" > ../quote_backtracking/ruby.rs
 
 # godotenv just gives an error for that
+# TODO: compose-go dotenv? probably also errors
 
 pushd java
 gradle -q run --args="--file ../quote-backtracking.env node ../dumpenv.js ${keys[*]}" > ../../quote_backtracking/java.rs
@@ -78,8 +80,8 @@ python -m dotenv --file escapes.env run --no-override node dumpenv.js "${keys[@]
 "$RUBY_DOTENV" -f escapes.env node dumpenv.js "${keys[@]}" > ../escapes/ruby.rs
 DOTENV_LINEBREAK_MODE=legacy "$RUBY_DOTENV" -f escapes.env node dumpenv.js "${keys[@]}" > ../escapes/ruby_legacy.rs
 
-# TODO: make limited test
 "$GO_DOTENV" -f escapes-godotenv.env node dumpenv.js "${keys[@]}" > ../escapes/godotenv.rs
+# TODO: compose-go dotenv
 
 #dotenvy --file=escapes.env node dumpenv.js "${keys[@]}" > ../escapes/dotenvy.rs
 

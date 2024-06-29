@@ -23,17 +23,19 @@ macro_rules! assert_edge_cases {
                 dialect($dialect).
                 path($path),
             &mut env
-            $(, $parent)?)?;
+            $(, $parent)?);
 
         assert_env_eq!(env, $fixture);
     };
 
     (@config $builder:expr, $env:expr, $parent:expr) => {
-        $builder.config_with_parent($env, $parent)
+        $builder.config_with_parent($env, $parent)?;
     };
 
     (@config $builder:expr, $env:expr) => {
-        $builder.config_env($env)
+        let mut parent = HashMap::new();
+        parent.insert(OsString::from("INHERIT"), OsString::from("inherited"));
+        $builder.config_with_parent($env, &parent)?;
     };
 
     (@override) => { false };
@@ -88,6 +90,7 @@ fn test_edge_cases_python() -> Result<()> {
 #[test]
 fn test_edge_cases_ruby_legacy() -> Result<()> {
     let mut parent = HashMap::new();
+    parent.insert(OsString::from("INHERIT"), OsString::from("inherited"));
     parent.insert(OsString::from("DOTENV_LINEBREAK_MODE"), OsString::from("legacy"));
     assert_edge_cases!(edge_cases::ruby_legacy::FIXTURE, Dialect::RubyDotenv, @parent: &parent);
     Ok(())

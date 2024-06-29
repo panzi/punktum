@@ -1,4 +1,5 @@
 const DEFAULT_KEYS = [
+    'INHERIT',
     'VAR1',
     'VAR2',
     'VAR3',
@@ -62,7 +63,7 @@ const DEFAULT_KEYS = [
 
 function quote(str) {
     // also patching messed up encoding handling in python-dotenv-cli
-    const escaped = str.replaceAll('Ã¤', 'ä').replace(/[\\"\u007F\u0000-\u001F\u00FF-\uD7FF\uE000-\uFFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ch => {
+    const escaped = str.replace(/Ã¤/g, 'ä').replace(/[\\"\u007F\u0000-\u001F\u00FF-\uD7FF\uE000-\uFFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ch => {
         switch (ch) {
             case '\n': return '\\n';
             case '\r': return '\\r';

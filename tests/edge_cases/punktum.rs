@@ -1,4 +1,5 @@
 pub const FIXTURE: &[(&str, &str)] = &[
+    ("INHERIT", "inherited"),
     ("VAR2", ""),
     ("VAR3", "EGG BACON AND SPAM"),
     ("VAR5", "FOO  BAR"),
