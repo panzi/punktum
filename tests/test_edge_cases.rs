@@ -1,22 +1,11 @@
-mod fixtures;
+mod edge_cases;
+mod common;
 
 use std::{collections::HashMap, ffi::{OsStr, OsString}};
 
 use punktum::{self, build, Dialect, Result};
 
-const EDGE_CASES_PATH: &str = "tests/fixtures/edge-cases.env";
-
-macro_rules! assert_env_eq {
-    ($env:ident, $fixture:expr) => {
-        for (key, expected_value) in $fixture {
-            let actual_value = $env.get(OsStr::new(key));
-
-            assert_eq!(actual_value.is_some(), true, "{key} is expected to be set, but isn't");
-            let actual_value = actual_value.unwrap();
-            assert_eq!(actual_value, expected_value, "{key} is expected to be {expected_value:?}, but is {actual_value:?}");
-        }
-    };
-}
+const EDGE_CASES_PATH: &str = "tests/generate/edge-cases.env";
 
 macro_rules! assert_edge_cases {
     ($fixture:expr, $dialect:expr $(, @parent: $parent:expr)?) => {
@@ -54,19 +43,19 @@ macro_rules! assert_edge_cases {
 
 #[test]
 fn test_edge_cases_javascript() -> Result<()> {
-    assert_edge_cases!(fixtures::edge_cases_javascript::FIXTURE, Dialect::JavaScriptDotenv);
+    assert_edge_cases!(edge_cases::javascript::FIXTURE, Dialect::JavaScriptDotenv);
     Ok(())
 }
 
 #[test]
 fn test_edge_cases_nodejs() -> Result<()> {
-    assert_edge_cases!(fixtures::edge_cases_nodejs::FIXTURE, Dialect::NodeJS);
+    assert_edge_cases!(edge_cases::nodejs::FIXTURE, Dialect::NodeJS);
     Ok(())
 }
 
 #[test]
 fn test_edge_cases_ruby() -> Result<()> {
-    assert_edge_cases!(fixtures::edge_cases_ruby::FIXTURE, Dialect::RubyDotenv);
+    assert_edge_cases!(edge_cases::ruby::FIXTURE, Dialect::RubyDotenv);
     Ok(())
 }
 
@@ -74,36 +63,38 @@ fn test_edge_cases_ruby() -> Result<()> {
 fn test_edge_cases_ruby_legacy() -> Result<()> {
     let mut parent = HashMap::new();
     parent.insert(OsString::from("DOTENV_LINEBREAK_MODE"), OsString::from("legacy"));
-    assert_edge_cases!(fixtures::edge_cases_ruby_legacy::FIXTURE, Dialect::RubyDotenv, @parent: &parent);
+    assert_edge_cases!(edge_cases::ruby_legacy::FIXTURE, Dialect::RubyDotenv, @parent: &parent);
     Ok(())
 }
 
 #[test]
 fn test_edge_cases_python() -> Result<()> {
-    assert_edge_cases!(fixtures::edge_cases_python::FIXTURE, Dialect::PythonDotenv);
+    assert_edge_cases!(edge_cases::python::FIXTURE, Dialect::PythonDotenv);
     Ok(())
 }
 
 #[test]
 fn test_edge_cases_python_cli() -> Result<()> {
-    assert_edge_cases!(fixtures::edge_cases_python_cli::FIXTURE, Dialect::PythonDotenvCLI, EDGE_CASES_PATH, override);
+    assert_edge_cases!(edge_cases::python_cli::FIXTURE, Dialect::PythonDotenvCLI, EDGE_CASES_PATH, override);
     Ok(())
 }
 
 #[test]
 fn test_edge_cases_java() -> Result<()> {
-    assert_edge_cases!(fixtures::edge_cases_java::FIXTURE, Dialect::JavaDotenv, "tests/fixtures/java.env");
+    // Java dotenv crashes (StringIndexOutOfBoundsException) in some cases of edge-cases.env, so I use a more limited version.
+    assert_edge_cases!(edge_cases::java::FIXTURE, Dialect::JavaDotenv, "tests/generate/java.env");
     Ok(())
 }
 
 #[test]
 fn test_edge_cases_godotenv() -> Result<()> {
-    assert_edge_cases!(fixtures::edge_cases_godotenv::FIXTURE, Dialect::GoDotenv, "tests/fixtures/godotenv.env");
+    // godotenv fails loudly with a syntax error in some cases of edge-cases.env, so I use a more limited version.
+    assert_edge_cases!(edge_cases::godotenv::FIXTURE, Dialect::GoDotenv, "tests/generate/godotenv.env");
     Ok(())
 }
 
 #[test]
 fn test_edge_cases_punktum() -> Result<()> {
-    assert_edge_cases!(fixtures::edge_cases_punktum::FIXTURE, Dialect::Punktum);
+    assert_edge_cases!(edge_cases::punktum::FIXTURE, Dialect::Punktum);
     Ok(())
 }
