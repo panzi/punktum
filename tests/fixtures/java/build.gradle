@@ -1,0 +1,32 @@
+plugins {
+    id 'application'
+}
+
+application {
+    mainClass = 'dotenv.Main'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'io.github.cdimascio:dotenv-java:3.0.0'
+}
+
+jar {
+    archiveBaseName = 'dotenv'
+    archiveVersion  = '0.1.0'
+
+    manifest {
+        attributes(
+            'Class-Path': configurations.runtimeClasspath.files.collect { it.getName() }.join(' '),
+            'Main-Class': 'dotenv.Main'
+        )
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-Xlint:unchecked'
+    options.deprecation = true
+}
