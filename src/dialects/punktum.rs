@@ -519,9 +519,10 @@ impl<'c> Parser<'c> {
                                     }
                                     _ => {
                                         let column = index + 1;
+                                        prev_index = index - 1;
                                         index += ch.len_utf8();
                                         if self.debug {
-                                            let escseq = &self.linebuf[(index - 2)..index];
+                                            let escseq = &self.linebuf[(index - 1 - ch.len_utf8())..index];
                                             let line = self.linebuf.trim_end_matches('\n');
                                             eprintln!("{DEBUG_PREFIX}{}:{}:{column}: syntax error: illegal escape seqeunce {escseq:?}: {line}", self.path, self.lineno);
                                         }
