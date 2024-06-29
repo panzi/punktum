@@ -9,7 +9,7 @@ pub const FIXTURE: &[(&str, &str)] = &[
     ("VAR13", "TEXT#COMMENT"),
     ("VAR14", "#NO COMMNET"),
     ("VAR15", "#NO COMMNET"),
-    ("VAR16", "double quoted backslash:\\double quote:\"single quote:'newline:\ntab:\tbackspace:\u{8}formfeed:\u{C}carrige return:\runicode ä:\\u00e4"),
+    ("VAR16", "double quoted backslash:\\double quote:\"single quote:'newline:\ntab:\tbackspace:\u{8}formfeed:\u{c}carrige return:\runicode ä:\\u00e4"),
     ("VAR17", "single quoted backslash:\\double quote:\\\"single quote:'newline:\\ntab:\\tbackspace:\\bformfeed:\\fcarrige return:\\runicode ä:\\u00e4"),
     ("VAR18", "no quote backslash:\\\\double quote:\\\"single quote:\\'newline:\\ntab:\\tbackspace:\\bformfeed:\\fcarrige return:\\runicode ä:\\u00e4"),
     ("VAR19", "FOO"),

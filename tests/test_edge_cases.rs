@@ -42,6 +42,20 @@ macro_rules! assert_edge_cases {
 }
 
 #[test]
+fn test_edge_cases_godotenv() -> Result<()> {
+    // godotenv fails loudly with a syntax error in some cases of edge-cases.env, so I use a more limited version.
+    assert_edge_cases!(edge_cases::godotenv::FIXTURE, Dialect::GoDotenv, "tests/generate/edge-cases-godotenv.env");
+    Ok(())
+}
+
+#[test]
+fn test_edge_cases_java() -> Result<()> {
+    // Java dotenv crashes (StringIndexOutOfBoundsException) in some cases of edge-cases.env, so I use a more limited version.
+    assert_edge_cases!(edge_cases::java::FIXTURE, Dialect::JavaDotenv, "tests/generate/edge-cases-java.env");
+    Ok(())
+}
+
+#[test]
 fn test_edge_cases_javascript() -> Result<()> {
     assert_edge_cases!(edge_cases::javascript::FIXTURE, Dialect::JavaScriptDotenv);
     Ok(())
@@ -54,8 +68,20 @@ fn test_edge_cases_nodejs() -> Result<()> {
 }
 
 #[test]
-fn test_edge_cases_ruby() -> Result<()> {
-    assert_edge_cases!(edge_cases::ruby::FIXTURE, Dialect::RubyDotenv);
+fn test_edge_cases_punktum() -> Result<()> {
+    assert_edge_cases!(edge_cases::punktum::FIXTURE, Dialect::Punktum);
+    Ok(())
+}
+
+#[test]
+fn test_edge_cases_python_cli() -> Result<()> {
+    assert_edge_cases!(edge_cases::python_cli::FIXTURE, Dialect::PythonDotenvCLI, EDGE_CASES_PATH, override);
+    Ok(())
+}
+
+#[test]
+fn test_edge_cases_python() -> Result<()> {
+    assert_edge_cases!(edge_cases::python::FIXTURE, Dialect::PythonDotenv);
     Ok(())
 }
 
@@ -68,33 +94,7 @@ fn test_edge_cases_ruby_legacy() -> Result<()> {
 }
 
 #[test]
-fn test_edge_cases_python() -> Result<()> {
-    assert_edge_cases!(edge_cases::python::FIXTURE, Dialect::PythonDotenv);
-    Ok(())
-}
-
-#[test]
-fn test_edge_cases_python_cli() -> Result<()> {
-    assert_edge_cases!(edge_cases::python_cli::FIXTURE, Dialect::PythonDotenvCLI, EDGE_CASES_PATH, override);
-    Ok(())
-}
-
-#[test]
-fn test_edge_cases_java() -> Result<()> {
-    // Java dotenv crashes (StringIndexOutOfBoundsException) in some cases of edge-cases.env, so I use a more limited version.
-    assert_edge_cases!(edge_cases::java::FIXTURE, Dialect::JavaDotenv, "tests/generate/java.env");
-    Ok(())
-}
-
-#[test]
-fn test_edge_cases_godotenv() -> Result<()> {
-    // godotenv fails loudly with a syntax error in some cases of edge-cases.env, so I use a more limited version.
-    assert_edge_cases!(edge_cases::godotenv::FIXTURE, Dialect::GoDotenv, "tests/generate/godotenv.env");
-    Ok(())
-}
-
-#[test]
-fn test_edge_cases_punktum() -> Result<()> {
-    assert_edge_cases!(edge_cases::punktum::FIXTURE, Dialect::Punktum);
+fn test_edge_cases_ruby() -> Result<()> {
+    assert_edge_cases!(edge_cases::ruby::FIXTURE, Dialect::RubyDotenv);
     Ok(())
 }

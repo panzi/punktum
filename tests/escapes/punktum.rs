@@ -1,0 +1,18 @@
+pub const FIXTURE: &[(&str, &str)] = &[
+    ("BASIC", "\r,\n,\t,\\v,\u{c},\\a,\u{8}"),
+    ("BACKSLASH", "\\"),
+    ("SINGLE_QUOTED1", "\\\nSINGLE_QUOTED2=\\"),
+    ("OCT1", "\\9\\009\\0"),
+    ("OCT2", "\\53\\053"),
+    ("OCT3", "\\157\\143\\164"),
+    ("OCT4", "\\0157\\0143\\0164"),
+    ("HEX", "\\x48\\x45\\x58\\x2E"),
+    ("UTF16", "ä"),
+    ("UTF16_PAIR", "\u{1f603}"),
+    ("UTF32_6", "\u{1f603}"),
+    ("UTF32_8", "\u{1f6}03"),
+    ("NAMED1", "\\u{Latin Capital Letter O with macron}"),
+    ("NAMED2", "\\u{LATIN CAPITAL LETTER O WITH MACRON}"),
+    ("NAMED3", "\\u{LATIN_CAPITAL_LETTER_O_WITH_MACRON}"),
+    ("ESCAPED_NEWLINE", ""),
+];

@@ -60,13 +60,29 @@ const DEFAULT_KEYS = [
     'BAZ',
 ];
 
+function quote(str) {
+    // also patching messed up encoding handling in python-dotenv-cli
+    const escaped = str.replaceAll('Ã¤', 'ä').replace(/[\\"\u007F\u0000-\u001F\u00FF-\uD7FF\uE000-\uFFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ch => {
+        switch (ch) {
+            case '\n': return '\\n';
+            case '\r': return '\\r';
+            case '\t': return '\\t';
+            case '"':  return '\\"';
+            case '\\': return '\\\\';
+            default:
+                return `\\u{${ch.codePointAt(0).toString(16)}}`;
+        }
+    });
+    return `"${escaped}"`;
+}
+
 function dumpEnv() {
     const keys = process.argv.length >= 3 ? process.argv.slice(2) : DEFAULT_KEYS;
     console.log("pub const FIXTURE: &[(&str, &str)] = &[");
     for (const key of keys) {
         const value = process.env[key];
         if (value !== undefined) {
-            console.log(`    (${JSON.stringify(key)}, ${JSON.stringify(value)}),`);
+            console.log(`    (${quote(key)}, ${quote(value)}),`);
         }
     }
     console.log("];");
