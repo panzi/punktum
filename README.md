@@ -668,7 +668,7 @@ plus `.`, `-`, `_`, `[`, and `]`. Meaning e.g. this would be a valid variable
 name: `.ᾖⅧ²⅛`
 However, a source comment above the usage of these functions claims:
 
-```C
+```Go
 // variable name should match [A-Za-z0-9_.-]
 ```
 
@@ -717,8 +717,17 @@ variable references in that part. But simple un-braced references it seems to
 support. It might be because of greedy `.*` expressions it matches too much and
 doesn't even support two braced variables in one string? Need to test that.
 
-Stripps `export` if followed by white space from the start of parsed lines. Meaning
+Strips `export` if followed by white space from the start of parsed lines. Meaning
 it doesn't support variables named `export`. (Need to test that.)
+
+Supports explicitely inheriting (importing) variables from the parent environment
+by naming them in a line without `=`:
+
+```dotenv
+# This reads the variable FOO from the parent (system) environment and adds
+# it to the newly constructed environment:
+FOO
+```
 
 GoDotenv Dialect
 ----------------
