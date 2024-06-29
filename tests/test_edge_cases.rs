@@ -19,31 +19,37 @@ macro_rules! assert_env_eq {
 }
 
 macro_rules! assert_edge_cases {
-    ($fixture:expr, $dialect:expr) => {
-        assert_edge_cases!($fixture, $dialect, EDGE_CASES_PATH);
+    ($fixture:expr, $dialect:expr $(, @parent: $parent:expr)?) => {
+        assert_edge_cases!($fixture, $dialect, EDGE_CASES_PATH $(, @parent: $parent)?);
     };
 
-    ($fixture:expr, $dialect:expr, $path:expr $(, $override:ident)?) => {
+    ($fixture:expr, $dialect:expr, $path:expr $(, $override:ident)? $(, @parent: $parent:expr)?) => {
         let mut env = HashMap::<OsString, OsString>::new();
         env.insert(OsString::from("PRE_DEFINED"), OsString::from("not override"));
 
-        build().
-            strict(false).
-            override_env(assert_edge_cases!(@override $($override)?)).
-            dialect($dialect).
-            path($path).
-            config_env(&mut env)?;
+        assert_edge_cases!(@config
+            build().
+                strict(false).
+                override_env(assert_edge_cases!(@override $($override)?)).
+                dialect($dialect).
+                path($path),
+            &mut env
+            $(, $parent)?)?;
 
         assert_env_eq!(env, $fixture);
     };
 
-    (@override) => {
-        false
+    (@config $builder:expr, $env:expr, $parent:expr) => {
+        $builder.config_with_parent($env, $parent)
     };
 
-    (@override override) => {
-        true
+    (@config $builder:expr, $env:expr) => {
+        $builder.config_env($env)
     };
+
+    (@override) => { false };
+
+    (@override override) => { true };
 }
 
 #[test]
@@ -66,8 +72,9 @@ fn test_edge_cases_ruby() -> Result<()> {
 
 #[test]
 fn test_edge_cases_ruby_legacy() -> Result<()> {
-    std::env::set_var("DOTENV_LINEBREAK_MODE", "legacy");
-    assert_edge_cases!(fixtures::edge_cases_ruby_legacy::FIXTURE, Dialect::RubyDotenv);
+    let mut parent = HashMap::new();
+    parent.insert(OsString::from("DOTENV_LINEBREAK_MODE"), OsString::from("legacy"));
+    assert_edge_cases!(fixtures::edge_cases_ruby_legacy::FIXTURE, Dialect::RubyDotenv, @parent: &parent);
     Ok(())
 }
 
@@ -85,12 +92,18 @@ fn test_edge_cases_python_cli() -> Result<()> {
 
 #[test]
 fn test_edge_cases_java() -> Result<()> {
-    assert_edge_cases!(fixtures::java::FIXTURE, Dialect::JavaDotenv, "tests/fixtures/java.env");
+    assert_edge_cases!(fixtures::edge_cases_java::FIXTURE, Dialect::JavaDotenv, "tests/fixtures/java.env");
     Ok(())
 }
 
 #[test]
 fn test_edge_cases_godotenv() -> Result<()> {
-    assert_edge_cases!(fixtures::godotenv::FIXTURE, Dialect::GoDotenv, "tests/fixtures/godotenv.env");
+    assert_edge_cases!(fixtures::edge_cases_godotenv::FIXTURE, Dialect::GoDotenv, "tests/fixtures/godotenv.env");
+    Ok(())
+}
+
+#[test]
+fn test_edge_cases_punktum() -> Result<()> {
+    assert_edge_cases!(fixtures::edge_cases_punktum::FIXTURE, Dialect::Punktum);
     Ok(())
 }
