@@ -27,15 +27,25 @@ pub fn config_composego(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dy
             break;
         }
 
-        let (key, left, inherited) = parser.locate_key_name(cutset)?;
+        let (key, left, inherited) = match parser.locate_key_name(cutset) {
+            Err(err) => {
+                if options.strict {
+                    return Err(err);
+                }
+                cutset = skip_to_line_end(cutset);
+                continue;
+            },
+            Ok(res) => res
+        };
 
         if key.contains(' ') {
             if options.debug {
-                eprintln!("{DEBUG_PREFIX}{}:{}: key cannot contain a space", &parser.path, parser.lineno);
+                eprintln!("{DEBUG_PREFIX}{}:{}: key cannot contain a space: {key:?}", &parser.path, parser.lineno);
             }
             if options.strict {
                 return Err(Error::syntax_error(parser.lineno, 1));
             }
+            cutset = skip_to_line_end(cutset);
             continue;
         }
 
@@ -57,7 +67,16 @@ pub fn config_composego(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dy
             cutset = left;
             continue;
         }
-        let (value, left) = parser.extract_var_value(left, env.as_get_env())?;
+        let (value, left) = match parser.extract_var_value(left, env.as_get_env()) {
+            Err(err) => {
+                if options.strict {
+                    return Err(err);
+                }
+                cutset = skip_to_line_end(cutset);
+                continue;
+            },
+            Ok(res) => res
+        };
         let raw_value = &value;
         let value = value.split('\0').next().unwrap();
         if value.len() != raw_value.len() {
@@ -569,4 +588,12 @@ fn find_var_end(src: &str) -> usize {
         }
     }
     src.len()
+}
+
+#[inline]
+fn skip_to_line_end(src: &str) -> &str {
+    let Some(index) = src.find('\n') else {
+        return "";
+    };
+    &src[index..]
 }
