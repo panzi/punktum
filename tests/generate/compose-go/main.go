@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"io"
+	"errors"
 	"os/exec"
 	"log"
 	"strings"
@@ -45,7 +47,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	cmd := exec.Command(progPath, args...)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if replace {
 		environ := os.Environ()
@@ -73,7 +86,19 @@ func main() {
 		}
 	}
 
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+
+	go io.Copy(os.Stdout, stdout)
+	go io.Copy(os.Stderr, stderr)
+
+	if err := cmd.Wait(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.ExitCode())
+		}
+
 		log.Fatal(err)
 	}
 }
