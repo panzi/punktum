@@ -172,7 +172,7 @@ impl<'a> Parser<'a> {
 
                     if self.debug {
                         let newline = src.find('\n').unwrap_or(src.len());
-                        eprintln!("{DEBUG_PREFIX}{}:{}: unexpected character {} in variable name {:?}",
+                        eprintln!("{DEBUG_PREFIX}{}:{}: unexpected character {:?} in variable name {:?}",
                             &self.path, self.lineno, rune, &src[..newline]
                         );
                     }
@@ -225,6 +225,7 @@ impl<'a> Parser<'a> {
 
         let quote = quote.get() as char;
         let mut value = String::new();
+        let quoted_start = src;
         let src = &src[1..];
         for (index, ch) in src.char_indices() {
             if ch == '\n' {
@@ -257,10 +258,9 @@ impl<'a> Parser<'a> {
             return Ok((value, &src[index + ch.len_utf8()..]));
         }
 
-        let val_end_index = src.find('\n').unwrap_or(src.len());
         if self.debug {
-            eprintln!("{DEBUG_PREFIX}{}:{}: unterminated quoted value {}",
-                &self.path, self.lineno, &src[..val_end_index]
+            eprintln!("{DEBUG_PREFIX}{}:{}: unterminated quoted value: {}",
+                &self.path, self.lineno, &quoted_start
             );
         }
 
@@ -278,7 +278,8 @@ impl<'a> Parser<'a> {
             };
 
             buf.push_str(&src[..index]);
-            src = &src[index + 1..];
+            let subst_start = &src[index..];
+            src = &subst_start[1..];
 
             let Some(ch) = src.chars().next() else {
                 if self.debug {
@@ -300,8 +301,8 @@ impl<'a> Parser<'a> {
                     let index = find_var_subst_end(src);
                     if index == 0 || !src.starts_with(is_var_subst_start) {
                         if self.debug {
-                            eprintln!("{DEBUG_PREFIX}{}:{}: substitution syntax error",
-                                &self.path, self.lineno
+                            eprintln!("{DEBUG_PREFIX}{}:{}: substitution syntax truncated: {}",
+                                &self.path, self.lineno, &subst_start[..2]
                             );
                         }
                         if self.strict {
@@ -456,27 +457,44 @@ impl<'a> Parser<'a> {
                                 &self.path, self.lineno
                             );
                         }
-                        return Err(Error::syntax_error(self.lineno, 1));
+                        if self.strict {
+                            return Err(Error::syntax_error(self.lineno, 1));
+                        }
+                    } else {
+                        src = &src[1..];
                     }
-
-                    src = &src[1..];
                 }
                 _ => {
-                    let index = find_var_subst_end(src);
-                    if index == 0 || !src.starts_with(is_var_subst_start) {
+                    if !src.starts_with(is_var_subst_start) {
                         if self.debug {
-                            eprintln!("{DEBUG_PREFIX}{}:{}: substitution syntax error",
-                                &self.path, self.lineno
+                            eprintln!("{DEBUG_PREFIX}{}:{}: ignored substitution syntax error: {:?}",
+                                &self.path, self.lineno, &subst_start[..1 + ch.len_utf8()]
                             );
                         }
-                        return Err(Error::syntax_error(self.lineno, 1));
-                    }
+                        // seems to be ignored by the orginal
+                        buf.push('$');
+                        src = &src[1..];
+                    } else {
+                        let index = find_var_subst_end(src);
+                        if index == 0 {
+                            if self.debug {
+                                eprintln!("{DEBUG_PREFIX}{}:{}: substitution syntax error: {:?}",
+                                    &self.path, self.lineno, &subst_start[..1 + ch.len_utf8()]
+                                );
+                            }
+                            if self.strict {
+                                return Err(Error::syntax_error(self.lineno, 1));
+                            }
+                            buf.push('$');
+                            src = &src[1..];
+                        } else {
+                            let name = &src[..index].split('\0').next().unwrap();
+                            src = &src[index..];
 
-                    let name = &src[..index].split('\0').next().unwrap();
-                    src = &src[index..];
-
-                    if let Some(value) = env.get(name.as_ref()) {
-                        buf.push_str(value.to_string_lossy().as_ref());
+                            if let Some(value) = env.get(name.as_ref()) {
+                                buf.push_str(value.to_string_lossy().as_ref());
+                            }
+                        }
                     }
                 }
             }
