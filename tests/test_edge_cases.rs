@@ -51,6 +51,13 @@ fn test_edge_cases_godotenv() -> Result<()> {
 }
 
 #[test]
+fn test_edge_cases_composego() -> Result<()> {
+    // composego fails loudly with a syntax error in some cases of edge-cases.env, so I use a more limited version.
+    assert_edge_cases!(edge_cases::composego::FIXTURE, Dialect::ComposeGo, "tests/generate/edge-cases-composego.env");
+    Ok(())
+}
+
+#[test]
 fn test_edge_cases_java() -> Result<()> {
     // Java dotenv crashes (StringIndexOutOfBoundsException) in some cases of edge-cases.env, so I use a more limited version.
     assert_edge_cases!(edge_cases::java::FIXTURE, Dialect::JavaDotenv, "tests/generate/edge-cases-java.env");

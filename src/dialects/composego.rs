@@ -473,7 +473,6 @@ impl<'a> Parser<'a> {
                         }
                         // seems to be ignored by the orginal
                         buf.push('$');
-                        src = &src[1..];
                     } else {
                         let index = find_var_subst_end(src);
                         if index == 0 {
@@ -486,7 +485,6 @@ impl<'a> Parser<'a> {
                                 return Err(Error::syntax_error(self.lineno, 1));
                             }
                             buf.push('$');
-                            src = &src[1..];
                         } else {
                             let name = &src[..index].split('\0').next().unwrap();
                             src = &src[index..];

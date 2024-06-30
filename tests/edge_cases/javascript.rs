@@ -44,7 +44,7 @@ pub const FIXTURE: &[(&str, &str)] = &[
     ("VAR39", "X ${VAR35} X $VAR34"),
     ("VAR40", "X${VAR35}X"),
     ("VAR41", "X${VAR35} $ \\$ ${VAR35}X"),
-    ("VAR42", "X${VAR35} $ \\$ ${VAR35}X"),
+    ("VAR42", "Y${VAR35} $ \\$ ${VAR35}Y"),
     ("VAR43", "${UNSET:-\n  multiline fallback!\n  variable substitution?\n  VAR5=$VAR5\n  # not a comment?\n}"),
     ("EOF", "\"FOO"),
 ];

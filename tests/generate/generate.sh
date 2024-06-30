@@ -33,8 +33,7 @@ python -m dotenv --file edge-cases.env run --no-override node dumpenv.js > ../ed
 DOTENV_LINEBREAK_MODE=legacy "$RUBY_DOTENV" -f edge-cases.env node dumpenv.js > ../edge_cases/ruby_legacy.rs
 
 "$GO_DOTENV" -f edge-cases-godotenv.env node dumpenv.js > ../edge_cases/godotenv.rs
-#INHERIT=inherited compose-go/dotenv --file edge-cases.env node dumpyenv.js > ../edge_cases/composego.rs
-# TODO: compose-go dotenv (supports INHERIT=inherited )
+INHERIT=inherited compose-go/dotenv --file edge-cases-composego.env node dumpenv.js > ../edge_cases/composego.rs
 
 #dotenvy --file=dotenvy.env node dumpenv.js > ../edge_cases/dotenvy.rs
 
