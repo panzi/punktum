@@ -15,6 +15,10 @@ PYTHON_DOTENV_CLI=${PYTHON_DOTENV_CLI:-~/.local/bin/dotenv}
 RUBY_DOTENV=${RUBY_DOTENV:-~/.rvm/gems/ruby-3.3.2/bin/dotenv}
 GO_DOTENV=${GO_DOTENV:-godotenv}
 
+pushd compose-go
+go build -o dotenv
+popd
+
 # edge-cases.env
 # ==============
 
@@ -29,6 +33,7 @@ python -m dotenv --file edge-cases.env run --no-override node dumpenv.js > ../ed
 DOTENV_LINEBREAK_MODE=legacy "$RUBY_DOTENV" -f edge-cases.env node dumpenv.js > ../edge_cases/ruby_legacy.rs
 
 "$GO_DOTENV" -f edge-cases-godotenv.env node dumpenv.js > ../edge_cases/godotenv.rs
+#INHERIT=inherited compose-go/dotenv --file edge-cases.env node dumpyenv.js > ../edge_cases/composego.rs
 # TODO: compose-go dotenv (supports INHERIT=inherited )
 
 #dotenvy --file=dotenvy.env node dumpenv.js > ../edge_cases/dotenvy.rs
