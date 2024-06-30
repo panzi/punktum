@@ -200,7 +200,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                         value = &value[5..];
                     }
                     'U' => {
-                        if value.len() < 7 {
+                        if value.len() < 9 {
                             if options.debug {
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid unicode escape sequence: \\{}", value);
                             }
@@ -211,7 +211,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             continue;
                         }
 
-                        let arg = &value[1..7];
+                        let arg = &value[1..9];
                         let Ok(ch) = u32::from_str_radix(arg, 16) else {
                             if options.debug {
                                 eprintln!("{DEBUG_PREFIX}{path_str}:{lineno}: invalid unicode escape sequence: \\U{}", arg);
@@ -233,7 +233,7 @@ pub fn config_python_dotenv_cli(reader: &mut dyn BufRead, env: &mut dyn Env, opt
                             continue;
                         };
                         value_buf.push(ch);
-                        value = &value[7..];
+                        value = &value[9..];
                     }
                     _ => {
                         if options.debug {
