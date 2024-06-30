@@ -146,7 +146,7 @@ impl<'a> Parser<'a> {
         &left[index..]
     }
 
-    fn locate_key_name<'b>(&self, mut src: &'b str) -> Result<(&'b str, &'b str, bool)> {
+    fn locate_key_name<'b>(&mut self, mut src: &'b str) -> Result<(&'b str, &'b str, bool)> {
         let mut key = "";
         let mut inherited = false;
         src = self.trim_export(src);
@@ -194,6 +194,10 @@ impl<'a> Parser<'a> {
 
         key = key.trim_end();
         let cutset = src[offset..].trim_start_matches(is_space);
+
+        if inherited {
+            self.lineno += 1;
+        }
 
         Ok((key, cutset, inherited))
     }
