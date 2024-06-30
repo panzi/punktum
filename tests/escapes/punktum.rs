@@ -1,6 +1,7 @@
 pub const FIXTURE: &[(&str, &str)] = &[
     ("BASIC", "\r,\n,\t,\\v,\u{c},\\a,\u{8}"),
     ("BACKSLASH", "\\"),
+    ("QUOTES", "\",'"),
     ("SINGLE_QUOTED1", "\\\nSINGLE_QUOTED2=\\"),
     ("OCT1", "\\9\\009\\0"),
     ("OCT2", "\\53\\053"),
@@ -14,5 +15,6 @@ pub const FIXTURE: &[(&str, &str)] = &[
     ("NAMED1", "\\u{Latin Capital Letter O with macron}"),
     ("NAMED2", "\\u{LATIN CAPITAL LETTER O WITH MACRON}"),
     ("NAMED3", "\\u{LATIN_CAPITAL_LETTER_O_WITH_MACRON}"),
+    ("UNKNOWN", "\\/,\\z,\\ "),
     ("ESCAPED_NEWLINE", ""),
 ];

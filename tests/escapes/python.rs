@@ -14,5 +14,6 @@ pub const FIXTURE: &[(&str, &str)] = &[
     ("NAMED1", "\\u{Latin Capital Letter O with macron}"),
     ("NAMED2", "\\u{LATIN CAPITAL LETTER O WITH MACRON}"),
     ("NAMED3", "\\u{LATIN_CAPITAL_LETTER_O_WITH_MACRON}"),
+    ("UNKNOWN", "\\/,\\z,\\ "),
     ("ESCAPED_NEWLINE", "\\\n"),
 ];

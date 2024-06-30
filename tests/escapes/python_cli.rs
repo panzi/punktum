@@ -1,6 +1,7 @@
 pub const FIXTURE: &[(&str, &str)] = &[
     ("BASIC", "\r,\n,\t,\u{b},\u{c},\u{7},\u{8}"),
     ("BACKSLASH", "\\"),
+    ("QUOTES", "\",'"),
     ("SINGLE_QUOTED1", "\\'"),
     ("SINGLE_QUOTED2", "\\'"),
     ("OCT2", "++"),
@@ -8,5 +9,6 @@ pub const FIXTURE: &[(&str, &str)] = &[
     ("HEX", "HEX."),
     ("UTF16", "ä"),
     ("UTF32_8", "\u{1f603}"),
+    ("UNKNOWN", "\\/,\\z,\\ "),
     ("ESCAPED_NEWLINE", "\"\\"),
 ];

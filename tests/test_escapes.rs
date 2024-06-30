@@ -71,13 +71,11 @@ fn test_edge_cases_punktum() -> Result<()> {
     Ok(())
 }
 
-/* FIXME: bugs!
 #[test]
 fn test_edge_cases_python_cli() -> Result<()> {
-    assert_escapes!(escapes::python_cli::FIXTURE, Dialect::PythonDotenvCLI, "tests/generate/edge-cases-python-cli.env", override);
+    assert_escapes!(escapes::python_cli::FIXTURE, Dialect::PythonDotenvCLI, "tests/generate/escapes-python-cli.env", override);
     Ok(())
 }
-*/
 
 #[test]
 fn test_edge_cases_python() -> Result<()> {
