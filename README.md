@@ -930,10 +930,13 @@ Environemnt variables:
     Supported values:
     - Punktum (default)
     - NodeJS
+    - JavaScriptDotenv
+    - PythonDotenv
     - PythonDotenvCLI
     - ComposeGo
     - GoDotenv
     - RubyDotenv
+    - JavaDotenv
     - Binary
 
   DOTENV_LINEBREAK_MODE=legacy
