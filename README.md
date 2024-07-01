@@ -729,6 +729,24 @@ by naming them in a line without `=`:
 FOO
 ```
 
+The regular expression for octal escape sequences matches too much (`0\d{0,3}`
+instead of `0[0-7]{0,3}`, although that is still too much), replaces a `\0`
+prefix with just `\`, and then if the unquoting of the escape sequence fails it
+inserts the manipulated match.
+
+Meaning this value: `"\079"`
+Gives this string: `"\\79"`
+While it should give: `"\x079"` (bytes: `[ 0x07, 0x39 ]`)
+
+I.e. this are two bugs. Using the manipulated match when unquoting fails and
+matching too much and thus failing valid octal escape sequences.
+
+Also the used `strconv.UnquoteChar()` function wants octal escape sequences to
+be exactly 3 octal numbers long, meaning the regular expression should actually
+be `0[0-7]{3}`, or the match needs to be `0`-padded to 3 characters long. The
+way it is now any shorter octal escape sequences are an error and the (buggy)
+fallback mechanism is applied.
+
 GoDotenv Dialect
 ----------------
 

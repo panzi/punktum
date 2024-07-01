@@ -543,14 +543,20 @@ fn expand_escapes(mut src: &str) -> String {
             '"' => buf.push('"'),
             '\\' => buf.push('\\'),
             '0' => {
-                let mut byte = 0u8;
-                for _ in 0..3 {
-                    let Some(val) = oct_head(src) else { break; };
-                    byte *= 8;
-                    byte += val;
-                    src = &src[1..];
+                // The original replaces any "\0" prefix with just "\", but
+                // still uses that changed string in the fallback if unescaping
+                // somehow fails. And if fails in cases where it shouldn't,
+                // because of the buggy regular expression.
+                if let Some(oct) = src.get(..3) {
+                    if let Ok(byte) = u8::from_str_radix(oct, 8) {
+                        buf.push(byte as char);
+                        src = &src[3..];
+                    } else {
+                        buf.push('\\');
+                    }
+                } else {
+                    buf.push('\\');
                 }
-                buf.push(byte as char);
             }
             _ => {
                 buf.push('\\');
@@ -561,16 +567,6 @@ fn expand_escapes(mut src: &str) -> String {
 
     buf.push_str(src);
     buf
-}
-
-fn oct_head(src: &str) -> Option<u8> {
-    let ch = src.chars().next()?;
-
-    if ch < '0' || ch > '7' {
-        return None;
-    }
-
-    Some(ch as u8 - b'0')
 }
 
 fn has_quote_prefix(src: &str) -> Option<NonZeroU8> {

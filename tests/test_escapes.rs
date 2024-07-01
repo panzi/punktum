@@ -41,6 +41,12 @@ macro_rules! assert_escapes {
 }
 
 #[test]
+fn test_edge_cases_composego() -> Result<()> {
+    assert_escapes!(escapes::composego::FIXTURE, Dialect::ComposeGo);
+    Ok(())
+}
+
+#[test]
 fn test_edge_cases_godotenv() -> Result<()> {
     // godotenv fails loudly with a syntax error in some cases of edge-cases.env, so I use a more limited version.
     assert_escapes!(escapes::godotenv::FIXTURE, Dialect::GoDotenv, "tests/generate/escapes-godotenv.env");

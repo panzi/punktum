@@ -1,3 +1,4 @@
+pub mod composego;
 pub mod godotenv;
 pub mod java;
 pub mod javascript;

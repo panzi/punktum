@@ -58,8 +58,7 @@ python -m dotenv --file quote-backtracking.env run --no-override node dumpenv.js
 
 "$RUBY_DOTENV" -f quote-backtracking.env node dumpenv.js "${keys[@]}" > ../quote_backtracking/ruby.rs
 
-# godotenv just gives an error for that
-# TODO: compose-go dotenv? probably also errors
+# godotenv and compose-go just give an error for that
 
 pushd java
 gradle -q run --args="--file ../quote-backtracking.env node ../dumpenv.js ${keys[*]}" > ../../quote_backtracking/java.rs
@@ -72,7 +71,7 @@ popd
 # escapes.env
 # ===========
 
-keys=(BASIC BACKSLASH QUOTES SINGLE_QUOTED1 SINGLE_QUOTED2 OCT1 OCT2 OCT3 OCT4 HEX UTF16 UTF16_PAIR UTF32_6 UTF32_8 NAMED1 NAMED2 NAMED3 UNKNOWN ESCAPED_NEWLINE)
+keys=(BASIC BACKSLASH QUOTES SINGLE_QUOTED1 SINGLE_QUOTED2 INVALID_OCT OCT1 OCT2 OCT3 OCT4 HEX UTF16 UTF16_PAIR UTF32_6 UTF32_8 NAMED1 NAMED2 NAMED3 UNKNOWN ESCAPED_NEWLINE)
 
 node --env-file=escapes.env gen_dotenv.js "${keys[@]}" > ../escapes/nodejs.rs
 
@@ -85,7 +84,7 @@ python -m dotenv --file escapes.env run --no-override node dumpenv.js "${keys[@]
 DOTENV_LINEBREAK_MODE=legacy "$RUBY_DOTENV" -f escapes.env node dumpenv.js "${keys[@]}" > ../escapes/ruby_legacy.rs
 
 "$GO_DOTENV" -f escapes-godotenv.env node dumpenv.js "${keys[@]}" > ../escapes/godotenv.rs
-# TODO: compose-go dotenv
+compose-go/dotenv --file escapes.env node dumpenv.js "${keys[@]}" > ../escapes/composego.rs
 
 #dotenvy --file=escapes.env node dumpenv.js "${keys[@]}" > ../escapes/dotenvy.rs
 
