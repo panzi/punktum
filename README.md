@@ -734,8 +734,8 @@ instead of `0[0-7]{0,3}`, although that is still too much), replaces a `\0`
 prefix with just `\`, and then if the unquoting of the escape sequence fails it
 inserts the manipulated match.
 
-Meaning this value: `"\079"`
-Gives this string: `"\\79"`
+Meaning this value: `"\079"`  
+Gives this string: `"\\79"`  
 While it should give: `"\x079"` (bytes: `[ 0x07, 0x39 ]`)
 
 I.e. this are two bugs. Using the manipulated match when unquoting fails and
@@ -746,6 +746,13 @@ be exactly 3 octal numbers long, meaning the regular expression should actually
 be `0[0-7]{3}`, or the match needs to be `0`-padded to 3 characters long. The
 way it is now any shorter octal escape sequences are an error and the (buggy)
 fallback mechanism is applied.
+
+Further the regular expression also matches `\c`, which I can't find in the
+[Go spec](https://go.dev/ref/spec#Rune_literals). Though because
+`strconv.UnquoteChar()` fails for that the fallback is applied.
+
+The punktum implementation of this dialect is bug-compatible to this octal
+escape sequence handling logic.
 
 GoDotenv Dialect
 ----------------
