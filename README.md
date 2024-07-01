@@ -46,8 +46,8 @@ inherited variables.
 I might not implement any more dialects than I have right now.
 
 This feature matrix only gives somewhat of an overview. The exact syntax for
-escape sequences or variable substitution, the places either can be used and
-the algorithm for resolving variable substitutions differs between dialects.
+escape sequences or variable substitution, the places where either can be used
+and the algorithm for resolving variable substitutions differs between dialects.
 
 | Dialect                                        | Multiline | Esc Seq | `"` | `'` | `` ` `` | `$variable` | `$(command)` |
 |:-----------------------------------------------|:---------:|:-------:|:---:|:---:|:-------:|:-----------:|:------------:|
