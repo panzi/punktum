@@ -27,13 +27,13 @@ with my limited manual test.
 | Dialect | Status | Description |
 |:-|:-:|:-|
 | [Punktum](#punktum-dialect) | Works | Crazy dialect I made up. More details below. |
-| [NodeJS](#nodejs-dialect) | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
-| [PythonDotnev](#python-dotenv-dialect) | Works | Compatible to the [python-dotenv](https://github.com/theskumar/python-dotenv) pypi package. |
+| [PythonDotenv](#python-dotenv-dialect) | Works | Compatible to the [python-dotenv](https://github.com/theskumar/python-dotenv) pypi package. |
 | [PythonDotenvCLI](#python-dotenv-cli-dialect) | Works | Compatible to the [dotenv-cli](https://github.com/venthur/dotenv-cli) pypi package. This is different to the above! Not sure which one is commonly used, so I'm working on implementing both. |
-| [ComposeGo](#composego-dialect) | Works? | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose. Variable substitution is not 100% compatible yet, the punktum implementation of this dialect accepts things where `compose-go/dotenv` errors out. |
+| [ComposeGo](#composego-dialect) | Works | Compatible to the [compose-go/dotenv](https://github.com/compose-spec/compose-go/tree/main/dotenv) as use in docker-compose. Variable substitution is not 100% compatible yet, the punktum implementation of this dialect accepts things where `compose-go/dotenv` errors out. |
 | [GoDotenv](#godotenv-dialect) | Works | Compatible to [godotenv](https://github.com/joho/godotenv). This seems to be a predecessor to the above. |
 | [RubyDotenv](#ruby-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/bkeepers/dotenv) Ruby gem. The two above each claim to be compatible to this, but clearly at least one of them is wrong. **NOTE:** Command `$()` support is deliberately not implemented. I deem running programs from a `.env` file to be dangerous. Use a shell script if you want to do that. |
 | [JavaScriptDotenv](#javascript-dotenv-dialect) | Works | Compatible to the [dotenv](https://github.com/motdotla/dotenv) npm package. The NodeJS dialect is meant to be the same as this, but of course isn't. |
+| [NodeJS](#nodejs-dialect) | Works | Compatible to [NodeJS](https://nodejs.org/) v22's built-in `--env-file=...` option. The parser changed between NodeJS versions. |
 | [JavaDotenv](#java-dotenv-dialect) | Works | Compatible to [java-dotenv](https://github.com/cdimascio/dotenv-java). Yet again subtly different. |
 | Dotenvy | *Not Implemented* | Probably won't implement [dotenvy](https://github.com/allan2/dotenvy) support, since it is already a Rust crate. And it is a good dialect with a sane parser and at a glance comprehensive looking tests. **Use that!** |
 | [Binary](#binary-dialect) | Works | Another silly dialect I made up. Records are always just `KEY=VALUE\0` (i.e. null terminated, since null cannot be in environment variables anyway). It ignores any encoding setting and only uses UTF-8. |
@@ -44,6 +44,27 @@ override variables defined in the `.env` file, or if it is only about
 inherited variables.
 
 I might not implement any more dialects than I have right now.
+
+This feature matrix only gives somewhat of an overview. The exact syntax for
+escape sequences or variable substitution, the places either can be used and
+the algorithm for resolving variable substitutions differs between dialects.
+
+| Dialect                                        | Multiline | Esc Seq | `"` | `'` | `` ` `` | `$variable` | `$(command)` |
+|:-----------------------------------------------|:---------:|:-------:|:---:|:---:|:-------:|:-----------:|:------------:|
+| [Punktum](#punktum-dialect)                    |     ✅    |    ✅    | ✅  |  ✅  |        |   ✅ **+**   |              |
+| [PythonDotenv](#python-dotenv-dialect)         |     ✅    |    ✅    | ✅  |  ✅  |        |   ✅ **+**   |              |
+| [PythonDotenvCLI](#python-dotenv-cli-dialect)  |           |    ✅    | ✅  |     |        |              |              |
+| [ComposeGo](#composego-dialect)                |     ✅    |    ✅    | ✅  |  ✅  |        |   ✅ **+**   |              |
+| [GoDotenv](#godotenv-dialect)                  |     ✅    |    ✅    | ✅  |  ✅  |        |              |              |
+| [RubyDotenv](#ruby-dotenv-dialect)             |     ✅    |    ✅    | ✅  |  ✅  |        |      ✅      |      ✅       |
+| [JavaScriptDotenv](#javascript-dotenv-dialect) |     ✅    |          | ✅  |  ✅  |   ✅   |              |              |
+| Sub-dialect: `dotenv-expand`                   |     ✅    |          | ✅  |  ✅  |   ✅   |   ✅ **+**   |              |
+| Sub-dialect: `dotenvx`                         |     ✅    |          | ✅  |  ✅  |   ✅   |   ✅ **+**   |      ✅       |
+| [NodeJS](#nodejs-dialect)                      |     ✅    |          | ✅  |  ✅  |   ✅   |              |              |
+| [JavaDotenv](#java-dotenv-dialect)             |     ✅    |          | ✅  |  ✅  |        |              |              |
+| [Binary](#binary-dialect)                      |     ✅    |          |     |     |        |              |              |
+
+`$variable`: ✅ **+** means that some extra syntax like `${name:-default}` is supported.
 
 Punktum Dialect
 ---------------
