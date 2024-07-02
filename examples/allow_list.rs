@@ -15,7 +15,7 @@ fn main() -> punktum::Result<()> {
     let mut env = HashMap::<OsString, OsString>::new();
     punktum::build()
         .debug(true)
-        .config_with_reader(
+        .config_with_reader_and_parent(
             std::io::Cursor::new(ENV),
             &mut AllowListEnv::from_slice(&mut env, &["FOO"]),
             &punktum::env::EmptyEnv()

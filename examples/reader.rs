@@ -7,7 +7,7 @@ fn main() -> punktum::Result<()> {
     let env = punktum::build()
         .debug(true)
         .strict(false)
-        .config_new_with_reader(
+        .config_new_with_reader_and_parent(
             std::io::Cursor::new(ENV),
             &punktum::env::EmptyEnv()
         )?;

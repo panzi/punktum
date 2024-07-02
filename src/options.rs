@@ -89,7 +89,12 @@ where P: AsRef<Path> {
     }
 
     #[inline]
-    pub fn config_with_reader(&self, mut reader: impl BufRead, env: &mut impl Env, parent: &impl GetEnv) -> Result<()> {
+    pub fn config_with_reader(&self, mut reader: impl BufRead, env: &mut impl Env) -> Result<()> {
+        crate::config_with_reader(&mut reader, env, &SYSTEM_ENV, self)
+    }
+
+    #[inline]
+    pub fn config_with_reader_and_parent(&self, mut reader: impl BufRead, env: &mut impl Env, parent: &impl GetEnv) -> Result<()> {
         crate::config_with_reader(&mut reader, env, parent, self)
     }
 
@@ -101,7 +106,14 @@ where P: AsRef<Path> {
     }
 
     #[inline]
-    pub fn config_new_with_reader(&self, mut reader: impl BufRead, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
+    pub fn config_new_with_reader(&self, mut reader: impl BufRead) -> Result<HashMap<OsString, OsString>> {
+        let mut env = HashMap::new();
+        crate::config_with_reader(&mut reader, &mut env, &SYSTEM_ENV, self)?;
+        Ok(env)
+    }
+
+    #[inline]
+    pub fn config_new_with_reader_and_parent(&self, mut reader: impl BufRead, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
         let mut env = HashMap::new();
         crate::config_with_reader(&mut reader, &mut env, parent, self)?;
         Ok(env)
@@ -309,8 +321,14 @@ where P: AsRef<Path> {
     }
 
     #[inline]
-    pub fn config_with_reader(self, reader: impl BufRead, env: &mut impl Env, parent: &impl GetEnv) -> Result<Self> {
-        self.options.config_with_reader(reader, env, parent)?;
+    pub fn config_with_reader(self, reader: impl BufRead, env: &mut impl Env) -> Result<Self> {
+        self.options.config_with_reader(reader, env)?;
+        Ok(self)
+    }
+
+    #[inline]
+    pub fn config_with_reader_and_parent(self, reader: impl BufRead, env: &mut impl Env, parent: &impl GetEnv) -> Result<Self> {
+        self.options.config_with_reader_and_parent(reader, env, parent)?;
         Ok(self)
     }
 
@@ -320,8 +338,13 @@ where P: AsRef<Path> {
     }
 
     #[inline]
-    pub fn config_new_with_reader(&self, reader: impl BufRead, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
-        self.options.config_new_with_reader(reader, parent)
+    pub fn config_new_with_reader(&self, reader: impl BufRead) -> Result<HashMap<OsString, OsString>> {
+        self.options.config_new_with_reader(reader)
+    }
+
+    #[inline]
+    pub fn config_new_with_reader_and_parent(&self, reader: impl BufRead, parent: &impl GetEnv) -> Result<HashMap<OsString, OsString>> {
+        self.options.config_new_with_reader_and_parent(reader, parent)
     }
 
     #[inline]
