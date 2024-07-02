@@ -57,14 +57,18 @@ and the algorithm for resolving variable substitutions differs between dialects.
 | [ComposeGo](#composego-dialect)                |     ✅    |    ✅    | ✅  |  ✅  |        |   ✅ **+**   |              |
 | [GoDotenv](#godotenv-dialect)                  |     ✅    |    ✅    | ✅  |  ✅  |        |              |              |
 | [RubyDotenv](#ruby-dotenv-dialect)             |     ✅    |    ✅    | ✅  |  ✅  |        |      ✅      |      ✅       |
-| [JavaScriptDotenv](#javascript-dotenv-dialect) |     ✅    |          | ✅  |  ✅  |   ✅   |              |              |
-| Sub-dialect: `dotenv-expand`                   |     ✅    |          | ✅  |  ✅  |   ✅   |   ✅ **+**   |              |
-| Sub-dialect: `dotenvx`                         |     ✅    |          | ✅  |  ✅  |   ✅   |   ✅ **+**   |      ✅       |
+| [JavaScriptDotenv](#javascript-dotenv-dialect) |     ✅    |   `\"`   | ✅  |  ✅  |   ✅   |              |              |
+| Sub-dialect: `dotenv-expand`                   |     ✅    |   `\"`   | ✅  |  ✅  |   ✅   |   ✅ **+**   |              |
+| Sub-dialect: `dotenvx`                         |     ✅    |   `\"`   | ✅  |  ✅  |   ✅   |   ✅ **+**   |      ✅       |
 | [NodeJS](#nodejs-dialect)                      |     ✅    |          | ✅  |  ✅  |   ✅   |              |              |
 | [JavaDotenv](#java-dotenv-dialect)             |     ✅    |          | ✅  |  ✅  |        |              |              |
 | [Binary](#binary-dialect)                      |     ✅    |          |     |     |        |              |              |
 
-`$variable`: ✅ **+** means that some extra syntax like `${name:-default}` is supported.
+Esc Seq: `\"` means that quotes can be escaped so the string doesn't end, but for
+some reaosn the backslash remains in the value.
+
+`$variable`: ✅ **+** means that some extra syntax like `${name:-default}` is
+supported.
 
 Punktum Dialect
 ---------------
