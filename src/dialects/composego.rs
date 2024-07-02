@@ -316,7 +316,7 @@ impl<'a> Parser<'a> {
                     src = &src[index..];
                     let value = env.get(name.as_ref());
                     let var_end_index = if src.starts_with(|ch| ch == ':' || ch == '?' ||ch == '+' || ch == '-') {
-                        let var_end_index = find_var_end(src);
+                        let var_end_index = find_braced_subst_end(src);
                         if var_end_index >= src.len() {
                             if self.debug {
                                 eprintln!("{DEBUG_PREFIX}{}:{}: expected: \"}}\", actual: {src:?}",
@@ -583,27 +583,48 @@ fn is_space(ch: char) -> bool {
     matches!(ch, '\t' | '\x0B' | '\x0C' | '\r' | ' ' | '\u{85}' | '\u{A0}')
 }
 
-// I'm not sure if the oroginal can even handle nested variable substitutions like that.
-fn find_var_end(src: &str) -> usize {
+// I'm not sure if the original can even handle nested variable substitutions like that.
+// Correctly emulates broken behavior of these:
+//
+//      FOO="${BAR:-{baz}
+//      bla}"
+//
+//      FOO="${BAR:-{{}
+//      }"
+//
+// And these (as in gives an error for these):
+//
+//      FOO="${BAR:-
+//      }"
+//
+//      FOO="${BAR:-${BAZ}
+//      }"
+
+fn find_braced_subst_end(src: &str) -> usize {
+    // Trying to emulated weird regular expression behavior.
+    // They use a greedy regular .* expression for the defaul/message part,
+    // but then it eats too much if there is another variable substitution
+    // in the same string, so they use this logic to find the actual balanced
+    // end brace and handle the part after it recursively.
+    // While I don't need a hack for the wrong use of a regular expression I
+    // have to emulate the behavior here.
+    // See: https://github.com/compose-spec/compose-go/blob/9d0d133e13d0955e27520c6317d08822b7c5de5f/template/template.go#L252
     let mut nesting = 0;
-    let mut prev_dollar = false;
+    let mut prev_closing = src.len();
     for (index, ch) in src.char_indices() {
         if ch == '}' {
             if nesting == 0 {
                 return index;
             }
             nesting -= 1;
-            prev_dollar = false;
-        } else if ch == '$' {
-            prev_dollar = !prev_dollar;
-        } else if ch == '{' && prev_dollar {
+            prev_closing = index;
+        } else if ch == '{' {
             nesting += 1;
-            prev_dollar = false;
-        } else {
-            prev_dollar = false;
+        } else if ch == '\n' {
+            break;
         }
     }
-    src.len()
+    prev_closing
 }
 
 #[inline]

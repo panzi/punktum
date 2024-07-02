@@ -189,6 +189,8 @@ of double quoted strings. (Should they be also evaluated in unquoted values?)
 Note that UTF-16 escape sequences need to encode valid surrogate pairs if they
 encode a large enough code-point. Invalid Unicode values are rejected as an error.
 
+#### Variable Substitution Syntax
+
 The variable substitution syntax is similar to the Unix shell. Variables are only
 read from the current environment, not the parent environemnt. You need to import
 them first to use them. (Should that be changed?)
@@ -205,6 +207,8 @@ them first to use them. (Should that be changed?)
 
 The `MESSAGE`/`DEFAULT` part can be anything like in a value, only not a `}` outside
 of a quoted string. (Maybe I should add `\{` and `\}` escapes?)
+
+#### Write a Punktum compatible file
 
 If you want to write a `.env` file in the Punktum dialect conatining arbitarary
 characters you can quote the values very easily like this:
@@ -778,6 +782,34 @@ Further the regular expression also matches `\c`, which I can't find in the
 
 The punktum implementation of this dialect is bug-compatible to this octal
 escape sequence handling logic.
+
+The variable substitution syntax is basically the same as in
+[Punktum](#variable-substitution-syntax), except that the default value/message
+part may not contain a newline character, even when the value is in quotes. This
+is because the used regular expression uses `.*` for this, which doesn't match
+newline characters.
+
+Because regular expressions can't handle recursive syntax they try to fix up
+miss-parsed substitutions somehow, which leads to in my opinion unexpected
+behavior. Examples:
+
+```dotenv
+FOO="${BAR:-{{}
+}"
+# FOO contains "{{\n}"
+
+FOO="${BAR:-{baz}
+bla}"
+# FOO contains "{baz\nbla}"
+
+FOO="${BAR:-${BAZ}
+}"
+# 2024/07/02 04:36:20 Invalid template: "${BAZ"
+
+FOO="${BAR:-
+}"
+# 2024/07/02 04:34:52 Invalid template: "${BAR:-\n}"
+```
 
 GoDotenv Dialect
 ----------------
