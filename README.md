@@ -198,12 +198,12 @@ them first to use them. (Should that be changed?)
 | Syntax | Description |
 |:-|:-|
 | `$VAR` or `${VAR}` | Empty string if unset. |
-| `${VAR:?MESSAGE}` | Error if `$VAR` is empty or unset. If provided `MESSAGE` will be printed as the error message. |
-| `${VAR?MESSAGE}` | Error if `$VAR` is unset. If provided `MESSAGE` will be printed as the error message. |
-| `${VAR:-DEFAULT}` | Use `DEFAULT` if `$VAR` is empty or unset. |
-| `${VAR-DEFAULT}` | Use `DEFAULT` if `$VAR` is unset. |
-| `${VAR:+DEFAULT}` | Use `DEFAULT` if `$VAR` is not empty. |
-| `${VAR+DEFAULT}` | Use `DEFAULT` if `$VAR` is set. |
+| `${VAR:?MESSAGE}`  | Error if `$VAR` is empty or unset. If provided `MESSAGE` will be printed as the error message. |
+| `${VAR?MESSAGE}`   | Error if `$VAR` is unset. If provided `MESSAGE` will be printed as the error message. |
+| `${VAR:-DEFAULT}`  | Use `DEFAULT` if `$VAR` is empty or unset. |
+| `${VAR-DEFAULT}`   | Use `DEFAULT` if `$VAR` is unset. |
+| `${VAR:+DEFAULT}`  | Use `DEFAULT` if `$VAR` is not empty. |
+| `${VAR+DEFAULT}`   | Use `DEFAULT` if `$VAR` is set. |
 
 The `MESSAGE`/`DEFAULT` part can be anything like in a value, only not a `}` outside
 of a quoted string. (Maybe I should add `\{` and `\}` escapes?)
@@ -410,7 +410,7 @@ part of variable names.
 
 This is not (yet?) implemented by Punktum.
 
-This adds vriable substitution on top, but because it is not integrated in the
+This adds variable substitution on top, but because it is not integrated in the
 parser it works differently than one might expect. It scans all variables that
 where defined in an environment and recursively resolves any found variable
 references. It also resolves references in variables that where defined outside

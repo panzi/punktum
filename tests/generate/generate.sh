@@ -95,3 +95,28 @@ popd
 pushd ../..
 cargo run -- --strict=false --file=tests/generate/escapes.env node tests/generate/dumpenv.js "${keys[@]}" > tests/escapes/punktum.rs
 popd
+
+# varsubst.env
+# ============
+
+keys=(UNSET VAR1 VAR2 VAR3 VAR4 VAR5 VAR6 VAR7)
+
+python -m dotenv --file varsubst.env run --no-override node dumpenv.js "${keys[@]}" > ../varsubst/python.rs
+compose-go/dotenv --file varsubst.env node dumpenv.js "${keys[@]}" > ../varsubst/composego.rs
+"$RUBY_DOTENV" -f varsubst.env node dumpenv.js "${keys[@]}" > ../varsubst/ruby.rs
+
+pushd ../..
+cargo run -- --strict=false --file=tests/generate/varsubst.env node tests/generate/dumpenv.js "${keys[@]}" > tests/varsubst/punktum.rs
+popd
+
+# varsubst-ext.env
+# ================
+
+keys=(EMPTY FOO UNSET VAR1S VAR1E VAR1U VAR2 VAR3S VAR3E VAR3U VAR4S VAR4E VAR4U VAR5S VAR5E VAR5U VAR6 VAR7 VAR8)
+
+python -m dotenv --file varsubst-ext.env run --no-override node dumpenv.js "${keys[@]}" > ../varsubst_ext/python.rs
+compose-go/dotenv --file varsubst-ext.env node dumpenv.js "${keys[@]}" > ../varsubst_ext/composego.rs
+
+pushd ../..
+cargo run -- --strict=false --file=tests/generate/varsubst-ext.env node tests/generate/dumpenv.js "${keys[@]}" > tests/varsubst_ext/punktum.rs
+popd
