@@ -71,7 +71,7 @@ some reaosn the backslash remains in the value.
 supported.
 
 `$(command)`: ⚠️ means that the way command substitution is implemented can lead
-to command injections. Also not that command substitution isn't implemented by
+to command injections. Also note that command substitution isn't implemented by
 punktum.
 
 Punktum Dialect
