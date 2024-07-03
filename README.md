@@ -56,7 +56,7 @@ and the algorithm for resolving variable substitutions differs between dialects.
 | [PythonDotenvCLI](#python-dotenv-cli-dialect)  |           |    ✅    | ✅  |     |        |              |              |
 | [ComposeGo](#composego-dialect)                |     ✅    |    ✅    | ✅  |  ✅  |        |   ✅ **+**   |              |
 | [GoDotenv](#godotenv-dialect)                  |     ✅    |    ✅    | ✅  |  ✅  |        |              |              |
-| [RubyDotenv](#ruby-dotenv-dialect)             |     ✅    |    ✅    | ✅  |  ✅  |        |      ✅      |      ✅       |
+| [RubyDotenv](#ruby-dotenv-dialect)             |     ✅    |    ✅    | ✅  |  ✅  |        |      ✅      |      ⚠️       |
 | [JavaScriptDotenv](#javascript-dotenv-dialect) |     ✅    |   `\"`   | ✅  |  ✅  |   ✅   |              |              |
 | Sub-dialect: `dotenv-expand`                   |     ✅    |   `\"`   | ✅  |  ✅  |   ✅   |   ✅ **+**   |              |
 | Sub-dialect: `dotenvx`                         |     ✅    |   `\"`   | ✅  |  ✅  |   ✅   |   ✅ **+**   |      ✅       |
@@ -69,6 +69,10 @@ some reaosn the backslash remains in the value.
 
 `$variable`: ✅ **+** means that some extra syntax like `${name:-default}` is
 supported.
+
+`$(command)`: ⚠️ means that the way command substitution is implemented can lead
+to command injections. Also not that command substitution isn't implemented by
+punktum.
 
 Punktum Dialect
 ---------------
