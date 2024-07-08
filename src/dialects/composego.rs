@@ -608,7 +608,7 @@ fn is_space(ch: char) -> bool {
 
 fn find_braced_subst_end(src: &str) -> usize {
     // Trying to emulated weird regular expression behavior.
-    // They use a greedy regular .* expression for the defaul/message part,
+    // They use a greedy regular .* expression for the default/message part,
     // but then it eats too much if there is another variable substitution
     // in the same string, so they use this logic to find the actual balanced
     // end brace and handle the part after it recursively.
