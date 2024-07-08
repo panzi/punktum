@@ -12,8 +12,11 @@ pub fn config_composego(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dy
     // strip byte order mark
     let src = src.strip_prefix('\u{FEFF}').unwrap_or(&src);
 
-    //let src = src.replace("\r\n", "\n");
-    let mut cutset = &src[..];
+    // The original doesn't change the line endings?
+    // TODO: Test this bahavior!
+    // let src = src.replace("\r\n", "\n");
+
+    let mut cutset = src;
     let mut parser = Parser {
         lineno: 1,
         path: path_str,
