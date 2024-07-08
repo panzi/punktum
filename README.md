@@ -762,6 +762,19 @@ by naming them in a line without `=`:
 FOO
 ```
 
+Note that there cannot be a comment after the variable name. Only white space
+and then the new line. Because it actually checks for the new line (`\n`)
+character there is also buggy behavior if it's the last line and it is not
+new line terminated. In that case it will think that the variable name is the
+empty string and the value is the variable name.
+
+I.e. if in the above example file is not new line terminated the environment
+will be this in JSON:
+
+```JSON
+{ "": "FOO" }
+```
+
 The regular expression for octal escape sequences matches too much (`0\d{0,3}`
 instead of `0[0-7]{0,3}`, although that is still too much), replaces a `\0`
 prefix with just `\`, and then if the unquoting of the escape sequence fails it

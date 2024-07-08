@@ -9,7 +9,10 @@ pub fn config_composego(reader: &mut dyn BufRead, env: &mut dyn Env, parent: &dy
     let mut src = String::new();
     options.encoding.read_to_string(reader, &mut src)?;
 
-    let src = src.replace("\r\n", "\n");
+    // strip byte order mark
+    let src = src.strip_prefix('\u{FEFF}').unwrap_or(&src);
+
+    //let src = src.replace("\r\n", "\n");
     let mut cutset = &src[..];
     let mut parser = Parser {
         lineno: 1,

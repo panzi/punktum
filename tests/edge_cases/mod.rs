@@ -1,4 +1,5 @@
 pub mod composego;
+pub mod composego_inherit_eof;
 pub mod godotenv;
 pub mod java;
 pub mod javascript;

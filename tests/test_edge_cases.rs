@@ -58,6 +58,13 @@ fn test_edge_cases_composego() -> Result<()> {
 }
 
 #[test]
+fn test_edge_cases_composego_inherit_eof() -> Result<()> {
+    // Buggy handling of files without newline at EOF
+    assert_edge_cases!(edge_cases::composego_inherit_eof::FIXTURE, Dialect::ComposeGo, "tests/generate/inherit-eof.env");
+    Ok(())
+}
+
+#[test]
 fn test_edge_cases_java() -> Result<()> {
     // Java dotenv crashes (StringIndexOutOfBoundsException) in some cases of edge-cases.env, so I use a more limited version.
     assert_edge_cases!(edge_cases::java::FIXTURE, Dialect::JavaDotenv, "tests/generate/edge-cases-java.env");

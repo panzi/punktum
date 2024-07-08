@@ -35,6 +35,10 @@ DOTENV_LINEBREAK_MODE=legacy "$RUBY_DOTENV" -f edge-cases.env node dumpenv.js > 
 "$GO_DOTENV" -f edge-cases-godotenv.env node dumpenv.js > ../edge_cases/godotenv.rs
 INHERIT=inherited compose-go/dotenv --file edge-cases-composego.env node dumpenv.js > ../edge_cases/composego.rs
 
+# It generates a variable with name "" and value "inherited", which is discarded by the os,
+# since there can't be zero-length environment variable names.
+#INHERIT=inherited compose-go/dotenv --file inherit-eof.env --replace node dumpenv.js INHERIT > ../edge_cases/composego_inherit_eof.rs
+
 #dotenvy --file=dotenvy.env node dumpenv.js > ../edge_cases/dotenvy.rs
 
 pushd java
