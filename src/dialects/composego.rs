@@ -589,7 +589,6 @@ fn is_space(ch: char) -> bool {
     matches!(ch, '\t' | '\x0B' | '\x0C' | '\r' | ' ' | '\u{85}' | '\u{A0}')
 }
 
-// I'm not sure if the original can even handle nested variable substitutions like that.
 // Correctly emulates broken behavior of these:
 //
 //      FOO="${BAR:-{baz}
