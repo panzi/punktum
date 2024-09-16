@@ -879,7 +879,7 @@ are no escape sequences, i.e. quoted strings may not include the quote, and ther
 are no multiline strings.
 
 It checks if a string is quoted by checking if it starts and ends with `"` and
-if yes slices of the first and last character of the value. But if the value was
+if true slices of the first and last character of the value. But if the value was
 a single `"` this will lead to an `StringIndexOutOfBoundsException`.
 
 Given that when the quoted regular expression fails it just treats any characters
